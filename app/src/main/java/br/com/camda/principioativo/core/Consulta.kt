@@ -190,7 +190,8 @@ object Consulta {
                 d to itens.sumOf { (cod, fator, atual) ->
                     val regs = porCodigo[cod]
                     val qtd = when {
-                        d == hoje && d !in datasHist -> atual
+                        // hoje é sempre o estoque atual, mesmo com upload já feito hoje
+                        d == hoje -> atual
                         regs == null -> atual
                         else -> regs.headMap(d + "\uFFFF").values.lastOrNull() ?: regs.values.first()
                     }

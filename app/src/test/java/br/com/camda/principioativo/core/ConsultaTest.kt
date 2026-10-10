@@ -180,6 +180,18 @@ class ConsultaTest {
         assertEquals(g.single().volume, s.pontos.last().second, 0.001)
     }
 
+    @Test fun historicoTerminaNoAtualMesmoComUploadDeHoje() {
+        val g = Consulta.agrupar(produtos).grupos.filter { it.chave == "GLIFOSATO" }
+        val hist = listOf(
+            LinhaHistorico("100", "2026-10-01", 10.0),
+            LinhaHistorico("101", "2026-10-01", 4.0),
+            LinhaHistorico("100", "2026-10-02", 3.0), // upload parcial de hoje
+        )
+        val s = Consulta.historico(g, hist, hoje = "2026-10-02").single()
+        assertEquals(listOf("2026-10-01", "2026-10-02"), s.pontos.map { it.first })
+        assertEquals(g.single().volume, s.pontos.last().second, 0.001)
+    }
+
     @Test fun historicoNaoComecaDoZero() {
         val g = Consulta.agrupar(produtos).grupos.filter { it.chave == "GLIFOSATO" }
         // 101 só aparece no dia 2: no dia 1 vale o primeiro registro (6), não 0.
@@ -188,8 +200,9 @@ class ConsultaTest {
             LinhaHistorico("999", "2026-10-01", 1.0),
             LinhaHistorico("101", "2026-10-02", 6.0),
         )
-        val s = Consulta.historico(g, hist, hoje = "2026-10-02").single()
-        assertEquals(listOf(10 * 20.0 + 6 * 5.0, 10 * 20.0 + 6 * 5.0), s.pontos.map { it.second })
+        val s = Consulta.historico(g, hist, hoje = "2026-10-03").single()
+        assertEquals(10 * 20.0 + 6 * 5.0, s.pontos[0].second, 0.001)
+        assertEquals(10 * 20.0 + 6 * 5.0, s.pontos[1].second, 0.001)
     }
 
     @Test fun historicoComUmaDataSoNaoDesenha() {
