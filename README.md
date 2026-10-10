@@ -73,8 +73,9 @@ mesmas regras de `extrair_litros`/`extrair_kg` do dashboard.
 ./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
 ```
 
-Publicar uma versão: `git tag v1.0.1 && git push origin v1.0.1`. O GitHub Actions
-roda os testes, gera o APK e anexa ao Release.
+Publicar uma versão: todo push na `main` (ou **Actions → Android → Run workflow**)
+roda os testes, gera o APK e cria o Release `v1.0.<n>` com ele. Uma tag `v*`
+empurrada à mão também publica, com o número da tag.
 
 ### Assinatura (opcional, recomendado)
 
