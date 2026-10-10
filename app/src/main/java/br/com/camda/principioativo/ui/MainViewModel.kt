@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import br.com.camda.principioativo.core.Consulta
 import br.com.camda.principioativo.core.Filtros
 import br.com.camda.principioativo.core.InfoCatalogo
+import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
 import br.com.camda.principioativo.core.Snapshot
 import br.com.camda.principioativo.data.Credenciais
@@ -30,6 +31,9 @@ data class Estado(
     val filtros: Filtros = Filtros(),
     val paAberto: String? = null,
     val catalogo: List<InfoCatalogo> = emptyList(),
+    val salvando: Boolean = false,
+    /** Resultado do último cadastro: (ok, mensagem). */
+    val aviso: Pair<Boolean, String>? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -91,6 +95,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) { repo.apagarCredenciais() }
         _estado.update { Estado(catalogo = it.catalogo) }
     }
+
+    /** Cadastra/troca o P.A. do produto e relê o banco para refletir na hora. */
+    fun salvarPa(produto: Produto, pas: List<String>, categoria: String, aoTerminar: (Boolean) -> Unit) {
+        val cred = runCatching { repo.credenciais() }.getOrNull() ?: return
+        val texto = PaMatcher.juntar(pas)
+        if (texto.isBlank()) return
+        _estado.update { it.copy(salvando = true, aviso = null) }
+        viewModelScope.launch {
+            val ok = try {
+                withContext(Dispatchers.IO) { repo.salvarPa(cred, produto.nome, texto, categoria) }
+                val (snap, quando) = withContext(Dispatchers.IO) { repo.atualizar(cred) }
+                aplicar(snap, quando)
+                _estado.update { it.copy(salvando = false, aviso = true to "${produto.nome} → $texto") }
+                true
+            } catch (e: Exception) {
+                _estado.update { it.copy(salvando = false, aviso = false to (e.message ?: e.javaClass.simpleName)) }
+                false
+            }
+            aoTerminar(ok)
+        }
+    }
+
+    fun limparAviso() = _estado.update { it.copy(aviso = null) }
 
     fun filtros(f: Filtros) = _estado.update { it.copy(filtros = f) }
     fun abrir(chave: String?) = _estado.update { it.copy(paAberto = chave) }

@@ -132,8 +132,9 @@ fun TelaConexao(estado: Estado, conectar: (String, String) -> Unit) {
                 CampoConexao(token, { token = it }, "Token de acesso", senha = true)
                 Espaco(12)
                 Text(
-                    "Use um token só de leitura, criado só para este app:\n" +
-                        "turso db tokens create <banco> --read-only\n\n" +
+                    "Crie um token só para este app:\n" +
+                        "turso db tokens create <banco>\n" +
+                        "(com --read-only o app só consulta e não cadastra P.A.)\n\n" +
                         "A URL e o token ficam guardados criptografados neste aparelho. " +
                         "Nada vai no código nem no APK.",
                     color = Cores.muted, fontSize = 12.sp, lineHeight = 17.sp,
@@ -504,7 +505,7 @@ private fun LinhaSemPa(n: Int, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text("Sem P.A. cadastrado", color = Cores.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text("produtos do estoque sem correspondência na base de P.A.", color = Cores.muted, fontSize = 12.sp)
+            Text("produtos novos para mapear · toque para cadastrar", color = Cores.muted, fontSize = 12.sp)
         }
         Text("$n", color = Cores.crit, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Cores.label)
@@ -522,6 +523,19 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
     val produtos = if (semPa) res.semPa else grupo?.produtos ?: emptyList()
     val titulo = if (semPa) "Sem P.A. cadastrado" else grupo?.nome ?: "P.A."
     val info = remember(chave, estado.catalogo) { infoCatalogo(chave, estado.catalogo) }
+    val conhecidos = remember(estado.produtos, estado.catalogo) { paConhecidos(estado.produtos, estado.catalogo) }
+    var editando by remember { mutableStateOf<Produto?>(null) }
+
+    editando?.let { p ->
+        DialogoCadastroPa(
+            produto = p,
+            conhecidos = conhecidos,
+            salvando = estado.salvando,
+            erro = estado.aviso?.takeIf { !it.first }?.second,
+            onSalvar = { pas, cat -> vm.salvarPa(p, pas, cat) { ok -> if (ok) editando = null } },
+            onFechar = { editando = null; vm.limparAviso() },
+        )
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val largo = maxWidth >= 720.dp
@@ -545,11 +559,14 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
                     }
                 }
             }
+            if (editando == null) estado.aviso?.let { a ->
+                item { FaixaAviso(a, vm::limparAviso, mod) }
+            }
             if (semPa) {
                 item {
                     Text(
-                        "Estes produtos não casaram com nenhum nome da tabela principios_ativos. " +
-                            "Cadastre o P.A. no dashboard (🧬 Base de Princípios Ativos) e toque em atualizar.",
+                        "Produtos novos que ainda não casaram com nenhum nome da tabela principios_ativos. " +
+                            "Toque em \"Cadastrar P.A.\" no produto para registrar.",
                         mod, color = Cores.muted, fontSize = 12.sp, lineHeight = 17.sp,
                     )
                 }
@@ -576,7 +593,9 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
                 item { Card(mod) { Text("Nenhum produto com os filtros atuais.", color = Cores.muted) } }
             }
             items(produtos, key = { it.codigo + "|" + it.nome }) { p ->
-                CardProduto(p, chave, mod) { outro -> vm.abrir(normaliza(outro)) }
+                CardProduto(p, chave, mod, onEditar = { vm.limparAviso(); editando = p }) { outro ->
+                    vm.abrir(normaliza(outro))
+                }
             }
             item { Espaco(24) }
         }
@@ -597,7 +616,9 @@ private fun infoCatalogo(chave: String, catalogo: List<InfoCatalogo>): List<Pair
 }
 
 @Composable
-private fun CardProduto(p: Produto, chaveAtual: String, modifier: Modifier, abrirPa: (String) -> Unit) {
+private fun CardProduto(
+    p: Produto, chaveAtual: String, modifier: Modifier, onEditar: () -> Unit, abrirPa: (String) -> Unit,
+) {
     val q = p.quantidade
     Column(
         modifier.clip(RaioLinha).background(if (p.temEstoque) Cores.surface else Cores.surface.copy(alpha = 0.55f))
@@ -643,6 +664,19 @@ private fun CardProduto(p: Produto, chaveAtual: String, modifier: Modifier, abri
             LinhaEtiquetas {
                 outros.forEach { o -> Etiqueta(o, cor = Cores.ok, fundo = Cores.okSoft) { abrirPa(o) } }
             }
+        }
+        Espaco(10)
+        if (p.pas.isEmpty()) {
+            Button(
+                onClick = onEditar, shape = RaioPilula, modifier = Modifier.fillMaxWidth().height(44.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Cores.accent, contentColor = Cores.onAccent),
+            ) { Text("Cadastrar P.A.", fontWeight = FontWeight.Bold) }
+        } else {
+            Text(
+                "Editar P.A.", color = Cores.text2, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clip(RaioPilula).clickable(onClick = onEditar)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+            )
         }
     }
 }

@@ -59,6 +59,11 @@ class Repositorio(private val ctx: Context) {
         return snap to agora
     }
 
+    /** Grava o P.A. de um produto no banco (precisa de token com escrita). */
+    fun salvarPa(c: Credenciais, produto: String, principioAtivo: String, categoria: String) {
+        Turso.escrever(c.url, c.token, Turso.corpoSalvarPa(produto, principioAtivo, categoria))
+    }
+
     fun cache(): Pair<Snapshot, Long>? = runCatching {
         if (!arquivoCache.exists()) return null
         Turso.parse(arquivoCache.readText()) to (arquivoData.readText().trim().toLongOrNull() ?: 0L)

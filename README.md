@@ -12,12 +12,14 @@ permitir "instalar apps desconhecidos" para o navegador — é só autorizar.
 
 ## Primeiro acesso
 
-O app pede a **URL do banco** (`libsql://…turso.io`) e um **token**. Use um
-token **só de leitura**, criado só para o app:
+O app pede a **URL do banco** (`libsql://…turso.io`) e um **token** criado só para ele:
 
 ```bash
-turso db tokens create <nome-do-banco> --read-only
+turso db tokens create <nome-do-banco>               # consulta + cadastro de P.A.
+turso db tokens create <nome-do-banco> --read-only   # só consulta
 ```
+
+O app só escreve numa tabela (`principios_ativos`), e só quando você salva um cadastro.
 
 Os dois ficam cifrados no aparelho (EncryptedSharedPreferences). Não há
 credencial no código nem no APK. Em ⚙️ dá para desconectar e apagar tudo.
@@ -31,6 +33,10 @@ credencial no código nem no APK. Em ⚙️ dá para desconectar e apagar tudo.
 - **Lista de P.A.**: contagem de produtos e volume total, mais o grupo **Sem P.A. cadastrado**.
 - **Detalhe do P.A.**: código, nome, embalagem, estoque em litros e na unidade física,
   localização do Mapa de Estoque e os outros P.A. das misturas como etiquetas (toque para abrir).
+- **Cadastro de P.A. de produto novo**: o produto que chega e não casa com a base aparece
+  em **Sem P.A. cadastrado** → *Cadastrar P.A.* (com sugestões; misturas um ingrediente por
+  vez). Também dá para *Editar P.A.* em qualquer produto. Grava em `principios_ativos` do
+  mesmo jeito que o dashboard (vale lá também). Precisa de token **com escrita**.
 - **Filtros** recolhíveis (estoque, embalagem, categoria) que atuam juntos e atualizam os gráficos.
 - Funciona offline com a última leitura salva. Layout de celular e de tablet.
 

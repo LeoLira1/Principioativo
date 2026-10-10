@@ -60,5 +60,9 @@ class PaMatcher(mapa: Map<String, String>) {
             pa.split('+').map { it.trim().replace(Regex("\\s+"), " ") }
                 .filter { it.isNotEmpty() && it.uppercase(Locale.ROOT) !in setOf("NAN", "NONE", "-") }
                 .distinctBy { normaliza(it) }
+
+        /** Inverso de [separar]: ["Diuron", "Hexazinona"] → "Diuron + Hexazinona". */
+        fun juntar(pas: List<String>): String =
+            pas.flatMap { separar(it) }.distinctBy { normaliza(it) }.joinToString(" + ")
     }
 }

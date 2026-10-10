@@ -75,8 +75,59 @@ object Turso {
         })
     }.toString()
 
+    /**
+     * Cadastro/troca do P.A. de um produto — mesmo efeito do
+     * `upsert_principio_ativo` do dashboard: apaga a linha do nome (em
+     * MAIÚSCULAS) e insere a nova, numa transação.
+     */
+    fun corpoSalvarPa(produto: String, principioAtivo: String, categoria: String): String {
+        val chave = produto.trim().uppercase(java.util.Locale.ROOT)
+        fun exec(sql: String, vararg args: String) = buildJsonObject {
+            put("type", "execute")
+            put("stmt", buildJsonObject {
+                put("sql", sql)
+                put("args", buildJsonArray {
+                    args.forEach { a -> add(buildJsonObject { put("type", "text"); put("value", a) }) }
+                })
+            })
+        }
+        return buildJsonObject {
+            put("requests", buildJsonArray {
+                add(exec("BEGIN"))
+                add(exec("DELETE FROM principios_ativos WHERE produto = ?", chave))
+                add(exec(
+                    "INSERT INTO principios_ativos (produto, principio_ativo, categoria) VALUES (?, ?, ?)",
+                    chave, principioAtivo.trim(), categoria.trim(),
+                ))
+                add(exec("COMMIT"))
+                add(buildJsonObject { put("type", "close") })
+            })
+        }.toString()
+    }
+
+    /** Envia uma escrita; qualquer passo com erro vira exceção com mensagem legível. */
+    fun escrever(url: String, token: String, corpo: String) {
+        val resp = post(url, token, corpo)
+        val resultados = json.parseToJsonElement(resp).jsonObject["results"]?.jsonArray
+            ?: throw IOException("Resposta do Turso sem 'results'.")
+        resultados.forEach { r ->
+            if (r.jsonObject["type"]?.jsonPrimitive?.contentOrNull == "error") {
+                val msg = r.jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull.orEmpty()
+                if (msg.contains("readonly", true) || msg.contains("read-only", true) ||
+                    msg.contains("permission", true) || msg.contains("not allowed", true)
+                ) throw IOException(MSG_SO_LEITURA)
+                throw IOException("Não salvou: $msg")
+            }
+        }
+    }
+
+    const val MSG_SO_LEITURA =
+        "Este token é só de leitura. Para cadastrar, conecte com um token com escrita (⚙️ → Desconectar)."
+
     /** Faz a requisição e devolve o JSON cru (que também vai pro cache offline). */
-    fun buscar(url: String, token: String): String {
+    fun buscar(url: String, token: String): String = post(url, token, corpoRequisicao())
+
+    private fun post(url: String, token: String, corpo: String): String {
         val con = URL(urlPipeline(url)).openConnection() as HttpURLConnection
         try {
             con.requestMethod = "POST"
@@ -85,7 +136,7 @@ object Turso {
             con.doOutput = true
             con.setRequestProperty("Authorization", "Bearer ${token.trim()}")
             con.setRequestProperty("Content-Type", "application/json")
-            con.outputStream.use { it.write(corpoRequisicao().toByteArray()) }
+            con.outputStream.use { it.write(corpo.toByteArray()) }
             val code = con.responseCode
             if (code == 401 || code == 403) throw IOException("Token recusado pelo Turso ($code). Confira o token.")
             if (code !in 200..299) {
