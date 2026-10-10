@@ -11,6 +11,12 @@ fun semAcento(s: String): String =
 fun normaliza(s: String): String =
     semAcento(s).uppercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
 
+/**
+ * Chave de agrupamento de P.A.: só letras e números, sem acento.
+ * "2,4-D", "2,4D" e "2.4 D" viram o mesmo grupo ("24D").
+ */
+fun chavePa(s: String): String = normaliza(s).filter { it.isLetterOrDigit() }
+
 /** Sufixos de tamanho/formulação (mesma regex `_RE_PA_SIZE` do camda-estoque). */
 private val RE_TAMANHO = Regex(
     "\\b\\d+[.,]?\\d*\\s*(?:L|ML|KG|G|GR|SC|T|MG|WG|WP|SL|EC|CS|GD|OD|SE|FS|EW|ME|TG|WDG|ZC|DC|ULV)\\b",

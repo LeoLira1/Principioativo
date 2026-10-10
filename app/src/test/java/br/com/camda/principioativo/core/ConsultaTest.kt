@@ -165,20 +165,80 @@ class ConsultaTest {
         assertTrue(produtos.first { it.codigo == "101" }.locais.isEmpty())
     }
 
-    @Test fun historicoMantemUltimoValor() {
+    @Test fun historicoMantemUltimoValorETerminaNoAtual() {
         val g = Consulta.agrupar(produtos).grupos.filter { it.chave == "GLIFOSATO" }
         val hist = listOf(
             LinhaHistorico("100", "2026-10-01", 10.0),
             LinhaHistorico("101", "2026-10-01", 4.0),
             LinhaHistorico("100", "2026-10-02", 8.0),
         )
-        val s = Consulta.historico(g, hist).single()
-        // dia 1: 10×20 + 4×5 = 220; dia 2: 8×20 + (4 mantido)×5 = 180
-        assertEquals(listOf(220.0, 180.0), s.pontos.map { it.second })
+        val s = Consulta.historico(g, hist, hoje = "2026-10-05").single()
+        // 100 = 20L, 101 = 5L. Dia 1: 10×20 + 4×5 = 220; dia 2: 8×20 + (4 mantido)×5 = 180
+        // hoje = estoque atual (100: 10, 101: 8) = 10×20 + 8×5 = 240, igual às barras
+        assertEquals(listOf("2026-10-01", "2026-10-02", "2026-10-05"), s.pontos.map { it.first })
+        assertEquals(listOf(220.0, 180.0, 240.0), s.pontos.map { it.second })
+        assertEquals(g.single().volume, s.pontos.last().second, 0.001)
+    }
+
+    @Test fun historicoTerminaNoAtualMesmoComUploadDeHoje() {
+        val g = Consulta.agrupar(produtos).grupos.filter { it.chave == "GLIFOSATO" }
+        val hist = listOf(
+            LinhaHistorico("100", "2026-10-01", 10.0),
+            LinhaHistorico("101", "2026-10-01", 4.0),
+            LinhaHistorico("100", "2026-10-02", 3.0), // upload parcial de hoje
+        )
+        val s = Consulta.historico(g, hist, hoje = "2026-10-02").single()
+        assertEquals(listOf("2026-10-01", "2026-10-02"), s.pontos.map { it.first })
+        assertEquals(g.single().volume, s.pontos.last().second, 0.001)
+    }
+
+    @Test fun historicoNaoComecaDoZero() {
+        val g = Consulta.agrupar(produtos).grupos.filter { it.chave == "GLIFOSATO" }
+        // 101 só aparece no dia 2: no dia 1 vale o primeiro registro (6), não 0.
+        // 100 nunca aparece (não vendeu): fica constante no estoque atual (10).
+        val hist = listOf(
+            LinhaHistorico("999", "2026-10-01", 1.0),
+            LinhaHistorico("101", "2026-10-02", 6.0),
+        )
+        val s = Consulta.historico(g, hist, hoje = "2026-10-03").single()
+        assertEquals(10 * 20.0 + 6 * 5.0, s.pontos[0].second, 0.001)
+        assertEquals(10 * 20.0 + 6 * 5.0, s.pontos[1].second, 0.001)
     }
 
     @Test fun historicoComUmaDataSoNaoDesenha() {
         val g = Consulta.agrupar(produtos).grupos
         assertTrue(Consulta.historico(g, listOf(LinhaHistorico("100", "2026-10-01", 1.0))).isEmpty())
+    }
+
+    // ── grafias diferentes do mesmo P.A. ────────────────────────────────────
+
+    private val grafias = Consulta.montarProdutos(
+        snap(
+            listOf(
+                LinhaEstoque("1", "TORDON 20L", "HERB", 2.0),
+                LinhaEstoque("2", "DMA 806 20L", "HERB", 3.0),
+                LinhaEstoque("3", "AMINOL 20L", "HERB", 1.0),
+            ),
+            listOf(
+                LinhaPa("TORDON", "Picloram + 2,4-D"),
+                LinhaPa("DMA 806", "2,4D"),
+                LinhaPa("AMINOL", "2,4-D"),
+            ),
+        ),
+    )
+
+    @Test fun grafiasDiferentesViramUmGrupo() {
+        val r = Consulta.agrupar(grafias)
+        val g = r.grupos.filter { it.chave == "24D" }
+        assertEquals(1, g.size)
+        assertEquals(setOf("1", "2", "3"), g.single().produtos.map { it.codigo }.toSet())
+        assertEquals("2,4-D", g.single().nome) // grafia mais usada
+        assertEquals(120.0, g.single().litros, 0.001)
+    }
+
+    @Test fun buscaIgnoraPontuacaoDoPa() {
+        assertEquals(3, Consulta.aplicaFiltros(grafias, Filtros(busca = "24d")).size)
+        assertEquals(3, Consulta.aplicaFiltros(grafias, Filtros(busca = "2,4 D")).size)
+        assertEquals(1, Consulta.aplicaFiltros(grafias, Filtros(busca = "pic")).size)
     }
 }

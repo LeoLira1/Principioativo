@@ -76,7 +76,7 @@ import br.com.camda.principioativo.core.Resultado
 import br.com.camda.principioativo.core.TipoEmbalagem
 import br.com.camda.principioativo.core.fmtInt
 import br.com.camda.principioativo.core.fmtNum
-import br.com.camda.principioativo.core.normaliza
+import br.com.camda.principioativo.core.chavePa
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -182,7 +182,7 @@ private fun CampoConexao(valor: String, mudou: (String) -> Unit, rotulo: String,
 fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
     var painelAberto by rememberSaveable { mutableStateOf(false) }
     var config by remember { mutableStateOf(false) }
-    val fatias = remember(res) { Consulta.fatias(res.grupos, 8) }
+    val fatias = remember(res) { Consulta.fatias(res.grupos, 10) }
     val barras = remember(res) { res.grupos.filter { it.volume > 0 }.take(8).map { br.com.camda.principioativo.core.Fatia(it.nome, it.volume, it.chave) } }
     val series = remember(res, estado.snapshot) {
         Consulta.historico(res.grupos, estado.snapshot?.historico ?: emptyList(), 4)
@@ -266,7 +266,7 @@ fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
             val maxVol = res.grupos.maxOfOrNull { it.volume }?.takeIf { it > 0 } ?: 1.0
             items(res.grupos, key = { it.chave }) { g ->
                 val idx = res.grupos.indexOf(g)
-                val cor = if (g.volume > 0 && idx < 8) Cores.daSerie(idx) else Cores.outros
+                val cor = if (g.volume > 0 && idx < 10) Cores.daSerie(idx) else Cores.outros
                 LinhaGrupo(g, cor, maxVol, mod) { vm.abrir(g.chave) }
             }
             item {
@@ -425,13 +425,13 @@ private fun PainelFiltros(f: Filtros, categorias: List<String>, mudou: (Filtros)
 
 @Composable
 private fun Kpis(res: Resultado, modifier: Modifier, largo: Boolean) {
-    val litros = res.grupos.flatMap { it.produtos }.distinct().sumOf { it.quantidade.litros } +
-        res.semPa.sumOf { it.quantidade.litros }
-    val kg = res.grupos.flatMap { it.produtos }.distinct().sumOf { it.quantidade.kg } +
-        res.semPa.sumOf { it.quantidade.kg }
+    // Só produtos com P.A.: rações, adubos e afins (sem P.A.) inflavam o total de kg.
+    val comPa = res.grupos.flatMap { it.produtos }.distinctBy { it.codigo + "|" + it.nome }
+    val litros = comPa.sumOf { it.quantidade.litros }
+    val kg = comPa.sumOf { it.quantidade.kg }
     val itens = listOf(
         Triple("Princípios ativos", fmtInt(res.grupos.size.toDouble()), Cores.ok),
-        Triple("Produtos", fmtInt(res.totalProdutos.toDouble()), Cores.info),
+        Triple("Produtos com P.A.", fmtInt(comPa.size.toDouble()), Cores.info),
         Triple("Litros", fmtInt(litros), Cores.warn),
         Triple("Quilos", fmtNum(kg), Cores.purple),
     )
@@ -594,7 +594,7 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
             }
             items(produtos, key = { it.codigo + "|" + it.nome }) { p ->
                 CardProduto(p, chave, mod, onEditar = { vm.limparAviso(); editando = p }) { outro ->
-                    vm.abrir(normaliza(outro))
+                    vm.abrir(chavePa(outro))
                 }
             }
             item { Espaco(24) }
@@ -604,7 +604,7 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
 
 /** Grupo químico / mecanismo / HRAC do catálogo, quando o P.A. aparece sozinho nele. */
 private fun infoCatalogo(chave: String, catalogo: List<InfoCatalogo>): List<Pair<String, String>> {
-    val itens = catalogo.filter { c -> PaMatcher.separar(c.principioAtivo).map(::normaliza) == listOf(chave) }
+    val itens = catalogo.filter { c -> PaMatcher.separar(c.principioAtivo).map(::chavePa) == listOf(chave) }
     if (itens.isEmpty()) return emptyList()
     fun junta(sel: (InfoCatalogo) -> String) =
         itens.map(sel).filter { it.isNotBlank() && it != "-" }.distinct().joinToString(" · ")
@@ -656,7 +656,7 @@ private fun CardProduto(
                 }
             }
         }
-        val outros = p.pas.filter { normaliza(it) != chaveAtual }
+        val outros = p.pas.filter { chavePa(it) != chaveAtual }
         if (outros.isNotEmpty()) {
             Espaco(10)
             Rotulo(if (chaveAtual == CHAVE_SEM_PA) "P.A." else "Também contém")

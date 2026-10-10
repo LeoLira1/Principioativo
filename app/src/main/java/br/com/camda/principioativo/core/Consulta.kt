@@ -99,6 +99,9 @@ object Consulta {
         if (normaliza(p.nome).contains(q)) return true
         if (normaliza(p.codigo).contains(q)) return true
         if (p.pas.any { normaliza(it).contains(q) }) return true
+        // "24d" acha "2,4-D"; "lambdacialotrina" acha "Lambda-cialotrina"
+        val qc = chavePa(q)
+        if (qc.length >= 2 && p.pas.any { chavePa(it).contains(qc) }) return true
         // "diuron + hexa" também acha a mistura inteira
         return normaliza(p.pas.joinToString(" + ")).contains(q)
     }
@@ -119,19 +122,23 @@ object Consulta {
      * só por grupo. Ordena pelo volume (L + kg), depois unidades, depois nome.
      */
     fun agrupar(produtos: List<Produto>): Resultado {
-        val grupos = LinkedHashMap<String, Pair<String, LinkedHashMap<String, Produto>>>()
+        val grupos = LinkedHashMap<String, LinkedHashMap<String, Produto>>()
+        // grafias de cada grupo ("2,4-D" ×5, "2,4D" ×2) → mostra a mais usada
+        val grafias = HashMap<String, LinkedHashMap<String, Int>>()
         val semPa = mutableListOf<Produto>()
         for (p in produtos) {
             if (p.pas.isEmpty()) { semPa += p; continue }
-            for (pa in p.pas) {
-                val chave = normaliza(pa)
-                val g = grupos.getOrPut(chave) { pa to LinkedHashMap() }
+            for (pa in p.pas.distinctBy(::chavePa)) {
+                val chave = chavePa(pa)
+                val g = grupos.getOrPut(chave) { LinkedHashMap() }
                 // chave do produto = código (ou nome) → nunca duplica dentro do grupo
-                g.second.putIfAbsent(p.codigo.ifEmpty { p.nome }, p)
+                g.putIfAbsent(p.codigo.ifEmpty { p.nome }, p)
+                grafias.getOrPut(chave) { LinkedHashMap() }.merge(pa, 1, Int::plus)
             }
         }
         val lista = grupos.map { (chave, v) ->
-            GrupoPa(chave, v.first, v.second.values.sortedWith(ordemProdutos))
+            val nome = grafias.getValue(chave).maxByOrNull { it.value }!!.key
+            GrupoPa(chave, nome, v.values.sortedWith(ordemProdutos))
         }.sortedWith(
             compareByDescending<GrupoPa> { it.volume }
                 .thenByDescending { it.unidades }
@@ -154,31 +161,44 @@ object Consulta {
 
     /**
      * Série histórica do volume (L + kg) por P.A., a partir dos snapshots de
-     * `vendas_historico`. Cada código mantém o último valor conhecido até o
-     * próximo upload (os uploads parciais só trazem os produtos do dia).
+     * `vendas_historico`. Os uploads parciais só trazem os produtos vendidos
+     * no dia, então, para cada código:
+     *  - entre dois registros vale o último conhecido;
+     *  - antes do primeiro registro vale o primeiro (não começa do zero);
+     *  - código sem nenhum registro (não vendeu no período) fica constante
+     *    no estoque atual.
+     * O último ponto é o estoque atual (`hoje`), o mesmo das barras.
      */
-    fun historico(grupos: List<GrupoPa>, hist: List<LinhaHistorico>, maxSeries: Int = 4): List<Serie> {
+    fun historico(
+        grupos: List<GrupoPa>,
+        hist: List<LinhaHistorico>,
+        maxSeries: Int = 4,
+        hoje: String = java.time.LocalDate.now().toString(),
+    ): List<Serie> {
         if (hist.isEmpty()) return emptyList()
-        val datas = hist.map { it.data.take(10) }.distinct().sorted()
-        if (datas.size < 2) return emptyList()
+        val datasHist = hist.map { it.data.take(10) }.distinct().sorted()
+        if (datasHist.size < 2) return emptyList()
+        val datas = if (hoje > datasHist.last()) datasHist + hoje else datasHist
         val porCodigo = hist.groupBy { normalizaCodigo(it.codigo) }
-            .mapValues { (_, v) -> v.associate { it.data.take(10) to it.qtdEstoque } }
+            .mapValues { (_, v) -> v.associate { it.data.take(10) to maxOf(it.qtdEstoque, 0.0) }.toSortedMap() }
 
-        return grupos.filter { it.volume > 0 }.take(maxSeries).mapNotNull { g ->
-            val fatores = g.produtos.mapNotNull { p ->
-                p.quantidade.emb.porUnidade?.let { normalizaCodigo(p.codigo) to it }
+        return grupos.filter { it.volume > 0 }.take(maxSeries).map { g ->
+            val itens = g.produtos.mapNotNull { p ->
+                p.quantidade.emb.porUnidade?.let { Triple(normalizaCodigo(p.codigo), it, p.quantidade.qtd) }
             }
-            val ultimo = HashMap<String, Double>()
-            var algum = false
             val pontos = datas.map { d ->
-                var soma = 0.0
-                for ((cod, fator) in fatores) {
-                    porCodigo[cod]?.get(d)?.let { ultimo[cod] = maxOf(it, 0.0); algum = true }
-                    soma += (ultimo[cod] ?: 0.0) * fator
+                d to itens.sumOf { (cod, fator, atual) ->
+                    val regs = porCodigo[cod]
+                    val qtd = when {
+                        // hoje é sempre o estoque atual, mesmo com upload já feito hoje
+                        d == hoje -> atual
+                        regs == null -> atual
+                        else -> regs.headMap(d + "\uFFFF").values.lastOrNull() ?: regs.values.first()
+                    }
+                    qtd * fator
                 }
-                d to soma
             }
-            if (algum) Serie(g.nome, pontos) else null
+            Serie(g.nome, pontos)
         }
     }
 }
