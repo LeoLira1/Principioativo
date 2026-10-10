@@ -1,0 +1,555 @@
+[
+ {
+  "produto": "ROUNDUP WG",
+  "principio_ativo": "Glifosato",
+  "grupo_quimico": "Glicina substituída",
+  "mecanismo": "Inibidor da enzima EPSPs",
+  "hrac": "G"
+ },
+ {
+  "produto": "ROUNDUP ORIGINAL MAIS",
+  "principio_ativo": "Glifosato",
+  "grupo_quimico": "Glicina substituída",
+  "mecanismo": "Inibidor da enzima EPSPs",
+  "hrac": "G"
+ },
+ {
+  "produto": "ROUNDUP TRANSORB R",
+  "principio_ativo": "Glifosato",
+  "grupo_quimico": "Glicina substituída",
+  "mecanismo": "Inibidor da enzima EPSPs",
+  "hrac": "G"
+ },
+ {
+  "produto": "AUDACE",
+  "principio_ativo": "Glufosinato sal de amônio",
+  "grupo_quimico": "Homoalanina substituída",
+  "mecanismo": "Inibidor da enzima Glutamina Sintetase",
+  "hrac": "H"
+ },
+ {
+  "produto": "REGLONE",
+  "principio_ativo": "Diquat",
+  "grupo_quimico": "Bipiridílio",
+  "mecanismo": "Desvio de elétrons no Fotossistema I",
+  "hrac": "D"
+ },
+ {
+  "produto": "VOLCANE",
+  "principio_ativo": "MSMA",
+  "grupo_quimico": "Organoarsênico",
+  "mecanismo": "Interação com grupos sulfidrila (Ação de contato)",
+  "hrac": "-"
+ },
+ {
+  "produto": "JUMP",
+  "principio_ativo": "Diuron + Hexazinona",
+  "grupo_quimico": "Ureia + Triazinona",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C2 + C1"
+ },
+ {
+  "produto": "HEXAZINONA 250SL",
+  "principio_ativo": "Hexazinona",
+  "grupo_quimico": "Triazinona",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C1"
+ },
+ {
+  "produto": "HEXAZINONA - D NORTOX",
+  "principio_ativo": "Diuron + Hexazinona + Tebutiurom",
+  "grupo_quimico": "Ureia + Triazinona + Ureia",
+  "mecanismo": "Inibidores do Fotossistema II",
+  "hrac": "C1 + C2"
+ },
+ {
+  "produto": "GESAPAX 500 CG",
+  "principio_ativo": "Ametrina",
+  "grupo_quimico": "Triazina",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C1"
+ },
+ {
+  "produto": "METRIMEX 500SC",
+  "principio_ativo": "Ametrina",
+  "grupo_quimico": "Triazina",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C1"
+ },
+ {
+  "produto": "COMBINE 500 SC",
+  "principio_ativo": "Tebutiurom",
+  "grupo_quimico": "Ureia",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C2"
+ },
+ {
+  "produto": "BUTIRON",
+  "principio_ativo": "Tebutiurom",
+  "grupo_quimico": "Ureia",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C2"
+ },
+ {
+  "produto": "DIURON NORTOX 500 SC",
+  "principio_ativo": "Diuron",
+  "grupo_quimico": "Ureia",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C2"
+ },
+ {
+  "produto": "MEGATRAZ",
+  "principio_ativo": "Atrazina",
+  "grupo_quimico": "Triazina",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C1"
+ },
+ {
+  "produto": "DINAMIC",
+  "principio_ativo": "Amicarbazona",
+  "grupo_quimico": "Triazolinona",
+  "mecanismo": "Inibidor do Fotossistema II",
+  "hrac": "C1"
+ },
+ {
+  "produto": "BORAL 500 SC",
+  "principio_ativo": "Sulfentrazone",
+  "grupo_quimico": "Triazolona",
+  "mecanismo": "Inibidor da enzima Protox (PPO)",
+  "hrac": "E"
+ },
+ {
+  "produto": "BORAL FULL",
+  "principio_ativo": "Sulfentrazone + Tebutiurom",
+  "grupo_quimico": "Triazolona + Ureia",
+  "mecanismo": "Inibidor da Protox + Inib. Fotossistema II",
+  "hrac": "E + C2"
+ },
+ {
+  "produto": "STONE",
+  "principio_ativo": "Sulfentrazone + Diuron",
+  "grupo_quimico": "Triazolona + Ureia",
+  "mecanismo": "Inibidor da Protox + Inib. Fotossistema II",
+  "hrac": "E + C2"
+ },
+ {
+  "produto": "SUMYZIN 500 SC",
+  "principio_ativo": "Flumioxazina",
+  "grupo_quimico": "N-fenilftalimida",
+  "mecanismo": "Inibidor da enzima Protox (PPO)",
+  "hrac": "E"
+ },
+ {
+  "produto": "FLUMIOXAZIN NORTOX SC",
+  "principio_ativo": "Flumioxazina",
+  "grupo_quimico": "N-fenilftalimida",
+  "mecanismo": "Inibidor da enzima Protox (PPO)",
+  "hrac": "E"
+ },
+ {
+  "produto": "MAUSER 500SC",
+  "principio_ativo": "Flumioxazina",
+  "grupo_quimico": "N-fenilftalimida",
+  "mecanismo": "Inibidor da enzima Protox (PPO)",
+  "hrac": "E"
+ },
+ {
+  "produto": "MIRANT",
+  "principio_ativo": "Carfentrazona-etílica",
+  "grupo_quimico": "Aril triazolinona",
+  "mecanismo": "Inibidor da enzima Protox (PPO)",
+  "hrac": "E"
+ },
+ {
+  "produto": "ZETHAMAXX",
+  "principio_ativo": "Imazetapir + Flumioxazina",
+  "grupo_quimico": "Imidazolinona + N-fenilftalimida",
+  "mecanismo": "Inibidor da ALS + Inibidor da Protox",
+  "hrac": "B + E"
+ },
+ {
+  "produto": "COACT",
+  "principio_ativo": "Diclosulam",
+  "grupo_quimico": "Triazolopirimidina sulfonanilida",
+  "mecanismo": "Inibidor da enzima ALS",
+  "hrac": "B"
+ },
+ {
+  "produto": "METSURAM 600 WG",
+  "principio_ativo": "Metsulfurom-metílico",
+  "grupo_quimico": "Sulfonilureia",
+  "mecanismo": "Inibidor da enzima ALS",
+  "hrac": "B"
+ },
+ {
+  "produto": "PACTO BAGPE BRA NEW",
+  "principio_ativo": "Cloransulam-metílico",
+  "grupo_quimico": "Triazolopirimidina sulfonanilida",
+  "mecanismo": "Inibidor da enzima ALS",
+  "hrac": "B"
+ },
+ {
+  "produto": "CALIPEN SC",
+  "principio_ativo": "Mesotriona + Atrazina",
+  "grupo_quimico": "Tricetona + Triazina",
+  "mecanismo": "Inibidor da HPPD + Inib. Fotossistema II",
+  "hrac": "F2 + C1"
+ },
+ {
+  "produto": "MESOTRIONA NORTOX",
+  "principio_ativo": "Mesotriona",
+  "grupo_quimico": "Tricetona",
+  "mecanismo": "Inibidor da enzima HPPD",
+  "hrac": "F2"
+ },
+ {
+  "produto": "GAMIT STAR",
+  "principio_ativo": "Clomazona",
+  "grupo_quimico": "Isoxazolidinona",
+  "mecanismo": "Inibidor da Biossíntese de Carotenoides",
+  "hrac": "F4"
+ },
+ {
+  "produto": "REATOR 360 CS",
+  "principio_ativo": "Clomazona",
+  "grupo_quimico": "Isoxazolidinona",
+  "mecanismo": "Inibidor da Biossíntese de Carotenoides",
+  "hrac": "F4"
+ },
+ {
+  "produto": "CLOMAZONE CCAB 500EC",
+  "principio_ativo": "Clomazona",
+  "grupo_quimico": "Isoxazolidinona",
+  "mecanismo": "Inibidor da Biossíntese de Carotenoides",
+  "hrac": "F4"
+ },
+ {
+  "produto": "ALION",
+  "principio_ativo": "Indaziflam",
+  "grupo_quimico": "Alquilazina",
+  "mecanismo": "Inibidor da Biossíntese de Celulose",
+  "hrac": "L"
+ },
+ {
+  "produto": "PROVENCE TOTAL",
+  "principio_ativo": "Indaziflam + Isoxaflutole",
+  "grupo_quimico": "Alquilazina + Isoxazol",
+  "mecanismo": "Inib. Celulose + Inibidor da HPPD",
+  "hrac": "L + F2"
+ },
+ {
+  "produto": "GROVER",
+  "principio_ativo": "S-metolacloro + Hexazinona",
+  "grupo_quimico": "Cloroacetanilida + Triazinona",
+  "mecanismo": "Inibidor de VLCFA + Inib. Fotossistema II",
+  "hrac": "K3 + C1"
+ },
+ {
+  "produto": "ARTYS",
+  "principio_ativo": "Picloram + 2,4-D",
+  "grupo_quimico": "Ác. piridinocarboxílico + Ác. ariloxialcanoico",
+  "mecanismo": "Mimetizadores de Auxina sintética",
+  "hrac": "O"
+ },
+ {
+  "produto": "ARREIO CANA",
+  "principio_ativo": "Fluroxipir-meptílico + Picloram",
+  "grupo_quimico": "Ác. piridiniloxialcanóico + Ác. piridinocarboxílico",
+  "mecanismo": "Mimetizadores de Auxina sintética",
+  "hrac": "O"
+ },
+ {
+  "produto": "TRICLON",
+  "principio_ativo": "Triclopir",
+  "grupo_quimico": "Ácido piridiniloxialcanoico",
+  "mecanismo": "Mimetizador de Auxina sintética",
+  "hrac": "O"
+ },
+ {
+  "produto": "RELICTA",
+  "principio_ativo": "Florpirauxifen-benzil",
+  "grupo_quimico": "Arilpicolinato",
+  "mecanismo": "Mimetizador de Auxina sintética",
+  "hrac": "O"
+ },
+ {
+  "produto": "KARATE ZEON 250 CS",
+  "principio_ativo": "Lambda-cialotrina",
+  "grupo_quimico": "Piretroide",
+  "mecanismo": "Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "TRINCA CAPS",
+  "principio_ativo": "Lambda-cialotrina",
+  "grupo_quimico": "Piretroide",
+  "mecanismo": "Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "CAPTURE 400 EC",
+  "principio_ativo": "Bifentrina",
+  "grupo_quimico": "Piretroide",
+  "mecanismo": "Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "BIFENTRINA 100 EC",
+  "principio_ativo": "Bifentrina",
+  "grupo_quimico": "Piretroide",
+  "mecanismo": "Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "ENGEO PLENO S",
+  "principio_ativo": "Lambda-cialotrina + Tiametoxam",
+  "grupo_quimico": "Piretroide + Neonicotinoide",
+  "mecanismo": "Bloqueador de canal de sódio + Agonista de receptor nicotínico de acetilcolina",
+  "hrac": ""
+ },
+ {
+  "produto": "ACTARA 750 SG",
+  "principio_ativo": "Tiametoxam",
+  "grupo_quimico": "Neonicotinoide",
+  "mecanismo": "Agonista de receptor nicotínico de acetilcolina",
+  "hrac": ""
+ },
+ {
+  "produto": "GALEAO",
+  "principio_ativo": "Imidacloprido",
+  "grupo_quimico": "Neonicotinoide",
+  "mecanismo": "Agonista de receptor nicotínico de acetilcolina",
+  "hrac": ""
+ },
+ {
+  "produto": "GALES",
+  "principio_ativo": "Bifentrina + Imidacloprido",
+  "grupo_quimico": "Piretroide + Neonicotinoide",
+  "mecanismo": "Bloqueador de canal de sódio + Agonista de receptor nicotínico de acetilcolina",
+  "hrac": ""
+ },
+ {
+  "produto": "SPERTO",
+  "principio_ativo": "Acetamiprido + Bifentrina",
+  "grupo_quimico": "Neonicotinoide + Piretroide",
+  "mecanismo": "Agonista de receptor nicotínico de acetilcolina + Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "MAXSAN",
+  "principio_ativo": "Dinotefuram + Piriproxifem",
+  "grupo_quimico": "Neonicotinoide + Análogo de juvenóide",
+  "mecanismo": "Agonista de receptor nicotínico de acetilcolina + Mimetizador de hormônio juvenil",
+  "hrac": ""
+ },
+ {
+  "produto": "EXPEDITION",
+  "principio_ativo": "Sulfoxaflor + Lambda-cialotrina",
+  "grupo_quimico": "Sulfoximina + Piretroide",
+  "mecanismo": "Modulador do receptor nicotínico de acetilcolina + Bloqueador de canal de sódio",
+  "hrac": ""
+ },
+ {
+  "produto": "AMPLIGO",
+  "principio_ativo": "Lambda-cialotrina + Clorantraniliprole",
+  "grupo_quimico": "Piretroide + Diamida",
+  "mecanismo": "Bloqueador de canal de sódio + Ativador de receptor de rianodina",
+  "hrac": ""
+ },
+ {
+  "produto": "VANTACOR",
+  "principio_ativo": "Clorantraniliprole",
+  "grupo_quimico": "Diamida",
+  "mecanismo": "Ativador de receptor de rianodina",
+  "hrac": ""
+ },
+ {
+  "produto": "BELT",
+  "principio_ativo": "Flubendiamida",
+  "grupo_quimico": "Diamida",
+  "mecanismo": "Ativador de receptor de rianodina",
+  "hrac": ""
+ },
+ {
+  "produto": "CERTERO",
+  "principio_ativo": "Triflumurom",
+  "grupo_quimico": "Benzoilureia",
+  "mecanismo": "Inibidor da síntese de quitina",
+  "hrac": ""
+ },
+ {
+  "produto": "DIMILIN 80 WG",
+  "principio_ativo": "Diflubenzurom",
+  "grupo_quimico": "Benzoilureia",
+  "mecanismo": "Inibidor da síntese de quitina",
+  "hrac": ""
+ },
+ {
+  "produto": "TALISMAN",
+  "principio_ativo": "Bifentrina + Carbosulfano",
+  "grupo_quimico": "Piretroide + Carbamato",
+  "mecanismo": "Bloqueador de canal de sódio + Inibidor da acetilcolinesterase",
+  "hrac": ""
+ },
+ {
+  "produto": "MARSHAL STAR",
+  "principio_ativo": "Carbosulfano",
+  "grupo_quimico": "Carbamato",
+  "mecanismo": "Inibidor da acetilcolinesterase",
+  "hrac": ""
+ },
+ {
+  "produto": "METOMIL 215 SL",
+  "principio_ativo": "Metomil",
+  "grupo_quimico": "Carbamato",
+  "mecanismo": "Inibidor da acetilcolinesterase",
+  "hrac": ""
+ },
+ {
+  "produto": "CLORFENAPIR NORTOX",
+  "principio_ativo": "Clorfenapir",
+  "grupo_quimico": "Pirazol",
+  "mecanismo": "Desacoplador da fosforilação oxidativa mitocondrial",
+  "hrac": ""
+ },
+ {
+  "produto": "FIPRONIL SURVEY 800 WG",
+  "principio_ativo": "Fipronil",
+  "grupo_quimico": "Fenilpirazol",
+  "mecanismo": "Bloqueador do canal de cloreto GABA",
+  "hrac": ""
+ },
+ {
+  "produto": "FIPRONIL 800 WG CCAB",
+  "principio_ativo": "Fipronil",
+  "grupo_quimico": "Fenilpirazol",
+  "mecanismo": "Bloqueador do canal de cloreto GABA",
+  "hrac": ""
+ },
+ {
+  "produto": "REPHON 800 WG",
+  "principio_ativo": "Fipronil",
+  "grupo_quimico": "Fenilpirazol",
+  "mecanismo": "Bloqueador do canal de cloreto GABA",
+  "hrac": ""
+ },
+ {
+  "produto": "CURBIX 200 SC",
+  "principio_ativo": "Etiprole",
+  "grupo_quimico": "Fenilpirazol",
+  "mecanismo": "Bloqueador do canal de cloreto GABA",
+  "hrac": ""
+ },
+ {
+  "produto": "REVOLUX",
+  "principio_ativo": "Metoxifenozida + Espinetoram",
+  "grupo_quimico": "Diacilhidrazina + Espinosina",
+  "mecanismo": "Agonista do receptor de ecdisona + Agonista de receptor nicotínico de acetilcolina",
+  "hrac": ""
+ },
+ {
+  "produto": "FRONDEO",
+  "principio_ativo": "Isocicloseram",
+  "grupo_quimico": "Isoxazolina",
+  "mecanismo": "Modulador do receptor GABA",
+  "hrac": ""
+ },
+ {
+  "produto": "ABAMECTIN 72 EC NORTOX",
+  "principio_ativo": "Abamectina",
+  "grupo_quimico": "Avermectina",
+  "mecanismo": "Agonista do receptor de glutamato com canal de cloreto",
+  "hrac": ""
+ },
+ {
+  "produto": "FOX XPRO",
+  "principio_ativo": "Bixafem + Protioconazol + Trifloxistrobina",
+  "grupo_quimico": "SDHI + Triazol + Estrobilurina",
+  "mecanismo": "Inibidor da succinato desidrogenase + Inibidor da biossíntese de ergosterol + Inibidor do complexo III",
+  "hrac": ""
+ },
+ {
+  "produto": "PRIORI XTRA",
+  "principio_ativo": "Azoxistrobina + Ciproconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "NATIVO",
+  "principio_ativo": "Trifloxistrobina + Tebuconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "AZIMUT",
+  "principio_ativo": "Azoxistrobina + Tebuconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "APROACH POWER",
+  "principio_ativo": "Picoxistrobina + Ciproconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "APROACH PREMIUM",
+  "principio_ativo": "Picoxistrobina + Ciproconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "SCORE FLEXI",
+  "principio_ativo": "Difenoconazol + Propiconazol",
+  "grupo_quimico": "Triazol",
+  "mecanismo": "Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "VIOVAN",
+  "principio_ativo": "Picoxistrobina + Protioconazol",
+  "grupo_quimico": "Estrobilurina + Triazol",
+  "mecanismo": "Inibidor do complexo III + Inibidor da biossíntese de ergosterol",
+  "hrac": ""
+ },
+ {
+  "produto": "VESSARYA",
+  "principio_ativo": "Benzovindiflupir + Picoxistrobina",
+  "grupo_quimico": "SDHI + Estrobilurina",
+  "mecanismo": "Inibidor da succinato desidrogenase + Inibidor do complexo III",
+  "hrac": ""
+ },
+ {
+  "produto": "VERANGO PRIME",
+  "principio_ativo": "Fluopiram",
+  "grupo_quimico": "SDHI",
+  "mecanismo": "Inibidor da succinato desidrogenase",
+  "hrac": ""
+ },
+ {
+  "produto": "UNIZEB GLORY",
+  "principio_ativo": "Azoxistrobina + Mancozebe",
+  "grupo_quimico": "Estrobilurina + Ditiocarbamato",
+  "mecanismo": "Inibidor do complexo III + Inibidor multissítio",
+  "hrac": ""
+ },
+ {
+  "produto": "ABSOLUTO FIX",
+  "principio_ativo": "Clorotalonil",
+  "grupo_quimico": "Isoftalonitrila",
+  "mecanismo": "Inibidor multissítio",
+  "hrac": ""
+ },
+ {
+  "produto": "DIFERE",
+  "principio_ativo": "Oxicloreto de Cobre",
+  "grupo_quimico": "Cobre inorgânico",
+  "mecanismo": "Inibidor multissítio",
+  "hrac": ""
+ }
+]
