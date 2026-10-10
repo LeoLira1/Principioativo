@@ -165,7 +165,8 @@ fun Rosca(fatias: List<Fatia>, onToque: (String) -> Unit, modifier: Modifier = M
             drawCircle(Cores.bg, 1.4.dp.toPx(), Offset(xFim, yLinha))
 
             val nome = medidor.measure(
-                f.nome, estiloNome.copy(color = cor, lineHeight = 12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                // quebra depois do hífen ("Lambda-" / "cialotrina"), não no meio da palavra
+                f.nome.replace("-", "-\u200B"), estiloNome.copy(color = cor, lineHeight = 12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis,
                 constraints = Constraints(maxWidth = larguraTexto),
             )
             val sub = medidor.measure(
