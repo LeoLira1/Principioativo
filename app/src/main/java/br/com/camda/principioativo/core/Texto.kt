@@ -26,6 +26,17 @@ private val RE_TAMANHO = Regex(
 /** Nome sem tamanho/formulação: "ROUNDUP WG 5KG" → "ROUNDUP". */
 fun semTamanho(s: String): String = RE_TAMANHO.replace(s, "").replace(Regex("\\s+"), " ").trim()
 
+/** Palavras de apresentação que não identificam o produto ("… INJETAVEL FRASCO", "POUR ON"). */
+private val RE_GENERICAS = Regex("\\b(?:INJETAVEIS|INJETAVEL|FRASCOS?|POUR[\\s-]*ON|SPOT[\\s-]*ON|USO\\s+TOPICO|TOPICO|ORAL)\\b")
+
+/**
+ * "Miolo" do nome para o casamento por semelhança: sem tamanho e sem palavras
+ * de apresentação. Sem isso, "AMOX JA INJETAVEL FRASCO" e "DECTOMAX INJETAVEL
+ * FRASCO" ficavam 78% iguais só pelo sufixo e herdavam o P.A. um do outro.
+ * Espera o texto já normalizado ([normaliza]).
+ */
+fun miolo(s: String): String = RE_GENERICAS.replace(semTamanho(s), "").replace(Regex("\\s+"), " ").trim()
+
 /** Normaliza código de produto: "254185.0" → "254185", maiúsculas. */
 fun normalizaCodigo(c: String?): String {
     if (c == null) return ""
