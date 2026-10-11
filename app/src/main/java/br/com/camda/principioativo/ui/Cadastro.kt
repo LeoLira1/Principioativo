@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,10 +46,12 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.camda.principioativo.core.Difflib
 import br.com.camda.principioativo.core.InfoCatalogo
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
 import br.com.camda.principioativo.core.normaliza
+import br.com.camda.principioativo.core.normalizaCodigo
 
 /** Todos os P.A. conhecidos (estoque + catálogo), para sugerir enquanto digita. */
 fun paConhecidos(produtos: List<Produto>, catalogo: List<InfoCatalogo>): List<String> =
@@ -62,6 +67,98 @@ fun sugerirPa(digitado: String, conhecidos: List<String>, escolhidos: List<Strin
     val livres = conhecidos.filter { normaliza(it) !in ja }
     return (livres.filter { normaliza(it).startsWith(q) } + livres.filter { normaliza(it).contains(q) })
         .distinct().take(max)
+}
+
+/**
+ * Busca inteligente de produto do estoque para vincular o P.A.: sem acento nem
+ * maiúsculas, palavras em qualquer ordem, por nome ou código, e tolera erro de
+ * digitação ("karatte" acha "KARATÊ ZEON"). Vale para TODOS os setores e categorias.
+ * Quem ainda não tem P.A. vem antes; depois, o nome que começa pelo termo.
+ */
+fun buscarProdutos(produtos: List<Produto>, digitado: String, max: Int = 30): List<Produto> {
+    val tokens = normaliza(digitado).split(' ').filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) return emptyList()
+    val nomes = produtos.map { normaliza(it.nome) }
+    val vocab = nomes.flatMap { it.split(Regex("[^A-Z0-9]+")) }.filter { it.length >= 3 }.toSet()
+    // cada token vira o conjunto de formas aceitas; sem acerto literal, entram as palavras parecidas
+    val formas = tokens.map { t ->
+        val literal = nomes.any { it.contains(t) } || produtos.any { normalizaCodigo(it.codigo).contains(t.uppercase()) }
+        if (literal || t.length < 4) setOf(t)
+        else setOf(t) + vocab.filter { Difflib.ratio(t, it) >= 0.75 }
+    }
+    // posição do termo no produto (nome vale mais que código); null = algum termo não casou
+    fun posicao(i: Int): Int? {
+        val cod = normalizaCodigo(produtos[i].codigo)
+        var pior = 0
+        for (fs in formas) {
+            var melhor: Int? = null
+            for (f in fs) {
+                val no = nomes[i].indexOf(f)
+                val co = cod.indexOf(f.uppercase())
+                val achou = if (no >= 0) no else if (co >= 0) 1000 + co else null
+                if (achou != null && (melhor == null || achou < melhor)) melhor = achou
+            }
+            if (melhor == null) return null
+            if (melhor > pior) pior = melhor
+        }
+        return pior
+    }
+    return produtos.indices
+        .mapNotNull { i -> posicao(i)?.let { Triple(i, produtos[i].pas.isNotEmpty(), it) } }
+        .sortedWith(compareBy<Triple<Int, Boolean, Int>>({ it.second }, { it.third }, { nomes[it.first].length }))
+        .take(max).map { produtos[it.first] }
+}
+
+/** Passo 1 do vínculo: achar o produto (qualquer setor) e escolher; o passo 2 é o [DialogoCadastroPa]. */
+@Composable
+fun DialogoBuscaProduto(
+    produtos: List<Produto>,
+    onEscolher: (Produto) -> Unit,
+    onFechar: () -> Unit,
+) {
+    var digitado by rememberSaveable { mutableStateOf("") }
+    val achados = remember(produtos, digitado) { buscarProdutos(produtos, digitado) }
+    AlertDialog(
+        onDismissRequest = onFechar,
+        containerColor = Cores.surface,
+        title = { Text("Vincular P.A.", color = Cores.text, fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = digitado, onValueChange = { digitado = it }, singleLine = true,
+                    label = { Text("Produto do estoque (nome ou código)") },
+                    placeholder = { Text("Ex.: karate") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Cores.label) },
+                    modifier = Modifier.fillMaxWidth(), shape = RaioLinha, colors = camposCores(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                )
+                Spacer(Modifier.padding(4.dp))
+                when {
+                    digitado.isBlank() -> Text(
+                        "Busca em todos os produtos do estoque, sem acento e mesmo com erro de digitação.",
+                        color = Cores.label, fontSize = 12.sp,
+                    )
+                    achados.isEmpty() -> Text("Nenhum produto encontrado.", color = Cores.label, fontSize = 13.sp)
+                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                        items(achados, key = { it.codigo.ifEmpty { it.nome } + "|" + it.nome }) { p ->
+                            Column(
+                                Modifier.fillMaxWidth().clickable { onEscolher(p) }.padding(vertical = 8.dp),
+                            ) {
+                                Text(p.nome, color = Cores.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    (if (p.pas.isEmpty()) "⚠️ sem P.A." else "✅ " + p.pas.joinToString(" + ")) +
+                                        (if (p.categoria.isNotBlank()) " · ${p.categoria}" else ""),
+                                    color = if (p.pas.isEmpty()) Cores.warn else Cores.ok, fontSize = 12.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onFechar) { Text("Fechar", color = Cores.text2) } },
+    )
 }
 
 /**

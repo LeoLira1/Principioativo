@@ -37,6 +37,7 @@ Dois setores, trocados no topo da tela:
 Adubos, adjuvantes, sementes, rações etc. não entram em nenhum dos dois.
 
 
+- **Vincular P.A. (botão ➕ no topo)**: busca inteligente em TODOS os produtos do estoque (qualquer setor/categoria), sem acento, fora de ordem e com erro de digitação; toque no produto e cadastre o P.A.
 - **Busca única**: P.A., nome ou código, parcial, sem diferenciar maiúsculas nem acentos.
 - **Rosca segmentada** (top 8 + "Outros"), com % na fatia e linha-guia até o rótulo.
 - **Barras em pílula** com trilho e valor no topo (top 8 por volume).

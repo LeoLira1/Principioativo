@@ -53,4 +53,22 @@ class CadastroPaTest {
         assertEquals(listOf("JUMP 20L", "Diuron + Hexazinona", "HERBICIDAS"), args)
         assertEquals("close", reqs.last().jsonObject["type"]!!.jsonPrimitive.content)
     }
+
+    private fun prod(cod: String, nome: String, pas: List<String> = emptyList(), cat: String = "") =
+        Produto(cod, nome, cat, Quantidade(1.0, Embalagem.deNome(nome)), pas, emptyList())
+
+    @Test fun buscaProdutoSemAcentoForaDeOrdemEComErroDeDigitacao() {
+        val lista = listOf(
+            prod("10", "KARATÊ ZEON 250 CS 1L", cat = "OUTROS"),
+            prod("11", "KARATE ZEON 50 CS 5L", listOf("Lambda-cialotrina")),
+            prod("12", "GLIFOSATO 20L"),
+        )
+        // sem P.A. vem antes; acha por qualquer setor/categoria
+        assertEquals(listOf("10", "11"), buscarProdutos(lista, "karate").map { it.codigo })
+        assertEquals(listOf("10", "11"), buscarProdutos(lista, "zeon karate").map { it.codigo })
+        assertEquals(listOf("10", "11"), buscarProdutos(lista, "karatte").map { it.codigo })
+        assertEquals(listOf("11"), buscarProdutos(lista, "karate 5l").map { it.codigo })
+        assertEquals(listOf("12"), buscarProdutos(lista, "12").map { it.codigo })
+        assertTrue(buscarProdutos(lista, "  ").isEmpty())
+    }
 }
