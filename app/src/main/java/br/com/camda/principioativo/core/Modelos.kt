@@ -20,6 +20,16 @@ data class LinhaMapa(
     val codigos: List<String>,
 )
 
+/** Linha de `classificacao_vet` (classe terapêutica dos medicamentos). */
+data class LinhaClasseVet(val codigo: String, val classe: String, val especie: String, val segmento: String)
+
+/** Onde o produto fica: barracão (defensivos) ou loja veterinária. */
+enum class Setor(val rotulo: String) {
+    BARRACAO("🌾 Barracão"),
+    LOJA_VET("💊 Loja Vet"),
+    OUTRO("Outros"),
+}
+
 /** Linha de `vendas_historico` (snapshot de estoque por dia de upload). */
 data class LinhaHistorico(val codigo: String, val data: String, val qtdEstoque: Double)
 
@@ -39,6 +49,7 @@ data class Snapshot(
     val mapa: List<LinhaMapa>,
     val historico: List<LinhaHistorico>,
     val avisos: List<String> = emptyList(),
+    val classes: List<LinhaClasseVet> = emptyList(),
 )
 
 /** Endereço legível: "R1-A-C3-N2" → "R1 A · C3 N2". */
@@ -59,6 +70,11 @@ data class Produto(
     /** Ingredientes (vazio = sem P.A. cadastrado). */
     val pas: List<String>,
     val locais: List<Local>,
+    val setor: Setor = Setor.BARRACAO,
+    /** Classe terapêutica (só medicamentos); vazio = sem classificação. */
+    val classe: String = "",
+    val especie: String = "",
+    val segmento: String = "",
 ) {
     val temEstoque: Boolean get() = quantidade.qtd > 0
 }
@@ -68,15 +84,18 @@ data class GrupoPa(
     val chave: String,
     val nome: String,
     val produtos: List<Produto>,
+    /** Loja Vet: mede em unidades, não em L + kg. */
+    val porUnidades: Boolean = false,
 ) {
     val litros: Double = produtos.sumOf { it.quantidade.litros }
     val kg: Double = produtos.sumOf { it.quantidade.kg }
     val unidades: Double = produtos.sumOf { it.quantidade.qtd }
 
-    /** Métrica de volume dos gráficos: L + kg (mesma ordenação da aba do dashboard). */
-    val volume: Double get() = litros + kg
+    /** Métrica dos gráficos: L + kg no barracão (ordenação da aba do dashboard), unidades na loja. */
+    val volume: Double get() = if (porUnidades) unidades else litros + kg
 
     fun volumeTexto(): String {
+        if (porUnidades) return "${fmtInt(unidades)} un."
         val partes = buildList {
             if (litros > 0) add("${fmtInt(litros)} L")
             if (kg > 0) add("${fmtNum(kg)} kg")

@@ -17,6 +17,7 @@ class TursoParseTest {
           ${ok("""[{"type":"text","value":"JUMP"},{"type":"text","value":"Diuron + Hexazinona"}]""")},
           {"type":"error","error":{"message":"no such table: mapa_posicoes"}},
           ${ok("""[{"type":"text","value":"100"},{"type":"text","value":"2026-10-01"},{"type":"float","value":3.5}]""", """[{"type":"text","value":"100"},{"type":"text","value":"2026-10-02"},{"type":"null"}]""")},
+          ${ok("""[{"type":"text","value":"100"},{"type":"text","value":"Vermífugo"},{"type":"text","value":"Bovinos"},{"type":"null"}]""")},
           {"type":"ok","response":{"type":"close"}}
         ]}
         """.trimIndent()
@@ -26,6 +27,7 @@ class TursoParseTest {
         assertTrue(s.mapa.isEmpty())
         assertEquals(1, s.avisos.size)
         assertEquals(listOf(3.5, 0.0), s.historico.map { it.qtdEstoque })
+        assertEquals(LinhaClasseVet("100", "Vermífugo", "Bovinos", ""), s.classes.single())
     }
 
     @Test fun urlDoPipeline() {

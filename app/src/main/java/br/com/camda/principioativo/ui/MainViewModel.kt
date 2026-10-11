@@ -8,6 +8,7 @@ import br.com.camda.principioativo.core.Filtros
 import br.com.camda.principioativo.core.InfoCatalogo
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
+import br.com.camda.principioativo.core.Setor
 import br.com.camda.principioativo.core.Snapshot
 import br.com.camda.principioativo.data.Credenciais
 import br.com.camda.principioativo.data.Repositorio
@@ -34,6 +35,9 @@ data class Estado(
     val salvando: Boolean = false,
     /** Resultado do último cadastro: (ok, mensagem). */
     val aviso: Pair<Boolean, String>? = null,
+    val setor: Setor = Setor.BARRACAO,
+    /** Loja Vet: lista/gráficos por classe terapêutica (true) ou por P.A. (false). */
+    val porClasse: Boolean = true,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -120,6 +124,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun limparAviso() = _estado.update { it.copy(aviso = null) }
 
     fun filtros(f: Filtros) = _estado.update { it.copy(filtros = f) }
+
+    /** Troca barracão ↔ loja: filtros do painel não fazem sentido entre setores. */
+    fun setor(s: Setor) = _estado.update {
+        if (it.setor == s) it else it.copy(setor = s, filtros = Filtros(busca = it.filtros.busca), paAberto = null)
+    }
+
+    fun porClasse(v: Boolean) = _estado.update { it.copy(porClasse = v) }
     fun abrir(chave: String?) = _estado.update { it.copy(paAberto = chave) }
     fun limparErro() = _estado.update { it.copy(erro = null) }
 }

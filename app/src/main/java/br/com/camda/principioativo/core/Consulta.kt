@@ -9,13 +9,21 @@ data class Filtros(
     val estoque: FiltroEstoque = FiltroEstoque.TODOS,
     val embalagens: Set<TipoEmbalagem> = emptySet(),
     val categorias: Set<String> = emptySet(),
+    val especies: Set<String> = emptySet(),
 ) {
     /** Quantos filtros do painel recolhível estão ativos (busca não conta). */
     val ativosNoPainel: Int
         get() = (if (estoque != FiltroEstoque.TODOS) 1 else 0) +
             (if (embalagens.isNotEmpty()) 1 else 0) +
-            (if (categorias.isNotEmpty()) 1 else 0)
+            (if (categorias.isNotEmpty()) 1 else 0) +
+            (if (especies.isNotEmpty()) 1 else 0)
 }
+
+/** Nome do grupo dos medicamentos sem linha em `classificacao_vet` (igual ao dashboard). */
+const val CLASSE_SEM = "Sem classificação"
+
+/** Prefixo da chave dos grupos por classe (não colide com a chave de P.A.). */
+const val PREFIXO_CLASSE = "CL:"
 
 /** Fatia/barra dos gráficos. */
 data class Fatia(val nome: String, val valor: Double, val chave: String?)
@@ -33,6 +41,30 @@ object Consulta {
 
     /** Nomes que o dashboard ignora em todo lugar (`_PRODUTOS_IGNORADOS`). */
     private val IGNORADOS = setOf("AÇÚCAR", "ACUCAR", "ARQUIVO MORTO")
+
+    /** Defensivos do barracão: herbicidas, fungicidas, inseticidas e nematicidas. */
+    private val PREFIXOS_BARRACAO = listOf("HERBICIDA", "FUNGICIDA", "INSETICIDA", "NEMATICIDA")
+
+    /** Grupos veterinários do BI (mesma lista do dashboard, sem identificação/dieta/raticida). */
+    private val CATEGORIAS_VET = listOf(
+        "MEDICAMENTOS", "MEDICAMENTOS VETERINÁRIOS", "VACINA AFTOSA", "VACINAS DIVERSAS/SOROS",
+        "ANTIBIOTICOS/ANTI-INFLAMATORIO", "ANESTESICO/ANALGESICO/DIURETIC", "ANTITOXICOS",
+        "VERMIFUGOS", "MOSQUICIDA/CARRAPATICIDA/BERNI", "UNGUENTOS/POMADAS", "HOMEOPATICO",
+        "HORMONIOS LEITEIROS", "TONICO MINERAL/VITAMINAS", "REPRODUCAO ANIMAL",
+    ).map(::chavePa).toSet()
+
+    /**
+     * Setor pela categoria do BI. Produto com classe em `classificacao_vet`
+     * é da loja mesmo que a categoria venha genérica.
+     */
+    fun setorDe(categoria: String, temClasseVet: Boolean): Setor {
+        val c = chavePa(categoria)
+        return when {
+            PREFIXOS_BARRACAO.any { c.startsWith(it) } -> Setor.BARRACAO
+            c in CATEGORIAS_VET || c.startsWith("MEDICAMENTO") || c.startsWith("VACINA") || temClasseVet -> Setor.LOJA_VET
+            else -> Setor.OUTRO
+        }
+    }
     private val RE_COD_PREFIXO = Regex("^\\s*[A-Z0-9\\-]{3,20}\\s*[-–]\\s*(.+)$", RegexOption.IGNORE_CASE)
 
     /**
@@ -73,6 +105,8 @@ object Consulta {
             else porNome.getOrPut(m.nomeProduto.trim().lowercase(Locale.ROOT)) { mutableListOf() }.add(loc)
         }
 
+        val classes = snap.classes.associateBy { normalizaCodigo(it.codigo) }
+
         val cachePa = HashMap<String, List<String>>()
         return limpo.map { l ->
             val pas = cachePa.getOrPut(l.produto) {
@@ -81,6 +115,7 @@ object Consulta {
             val locais = porCodigo[normalizaCodigo(l.codigo)]
                 ?: porNome[l.produto.trim().lowercase(Locale.ROOT)]
                 ?: emptyList()
+            val cv = classes[normalizaCodigo(l.codigo)]
             Produto(
                 codigo = l.codigo,
                 nome = l.produto.trim(),
@@ -88,6 +123,10 @@ object Consulta {
                 quantidade = Quantidade(maxOf(l.qtdSistema, 0.0), Embalagem.deNome(l.produto)),
                 pas = pas,
                 locais = locais.sortedBy { it.posKey },
+                setor = setorDe(l.categoria, cv != null && cv.classe.isNotBlank()),
+                classe = cv?.classe?.trim().orEmpty(),
+                especie = cv?.especie?.trim().orEmpty(),
+                segmento = cv?.segmento?.trim().orEmpty(),
             )
         }
     }
@@ -103,7 +142,9 @@ object Consulta {
         val qc = chavePa(q)
         if (qc.length >= 2 && p.pas.any { chavePa(it).contains(qc) }) return true
         // "diuron + hexa" também acha a mistura inteira
-        return normaliza(p.pas.joinToString(" + ")).contains(q)
+        if (normaliza(p.pas.joinToString(" + ")).contains(q)) return true
+        // loja: classe terapêutica e espécie ("vermifugo", "bovinos")
+        return normaliza(p.classe).contains(q) || normaliza(p.especie).contains(q)
     }
 
     fun aplicaFiltros(produtos: List<Produto>, f: Filtros): List<Produto> = produtos.filter { p ->
@@ -114,22 +155,39 @@ object Consulta {
                 FiltroEstoque.SEM -> !p.temEstoque
             } &&
             (f.embalagens.isEmpty() || p.quantidade.emb.tipo in f.embalagens) &&
-            (f.categorias.isEmpty() || p.categoria in f.categorias)
+            (f.categorias.isEmpty() || p.categoria in f.categorias) &&
+            (f.especies.isEmpty() || p.especie.ifBlank { "—" } in f.especies)
     }
 
     /**
      * Agrupa por P.A. Uma mistura entra no grupo de cada ingrediente, uma vez
      * só por grupo. Ordena pelo volume (L + kg), depois unidades, depois nome.
      */
-    fun agrupar(produtos: List<Produto>): Resultado {
+    fun agrupar(produtos: List<Produto>): Resultado = agrupar(produtos, porUnidades = false) { it.pas }
+
+    /** Loja Vet por classe terapêutica; sem classe vai para [CLASSE_SEM]. */
+    fun agruparPorClasse(produtos: List<Produto>): Resultado =
+        agrupar(produtos, porUnidades = true, prefixo = PREFIXO_CLASSE) { listOf(it.classe.ifBlank { CLASSE_SEM }) }
+
+    /**
+     * Agrupamento genérico: [chaves] diz em que grupos o produto entra
+     * (vazio = "sem"). [porUnidades] troca a métrica de L + kg para unidades.
+     */
+    fun agrupar(
+        produtos: List<Produto>,
+        porUnidades: Boolean,
+        prefixo: String = "",
+        chaves: (Produto) -> List<String>,
+    ): Resultado {
         val grupos = LinkedHashMap<String, LinkedHashMap<String, Produto>>()
         // grafias de cada grupo ("2,4-D" ×5, "2,4D" ×2) → mostra a mais usada
         val grafias = HashMap<String, LinkedHashMap<String, Int>>()
         val semPa = mutableListOf<Produto>()
         for (p in produtos) {
-            if (p.pas.isEmpty()) { semPa += p; continue }
-            for (pa in p.pas.distinctBy(::chavePa)) {
-                val chave = chavePa(pa)
+            val nomes = chaves(p)
+            if (nomes.isEmpty()) { semPa += p; continue }
+            for (pa in nomes.distinctBy(::chavePa)) {
+                val chave = prefixo + chavePa(pa)
                 val g = grupos.getOrPut(chave) { LinkedHashMap() }
                 // chave do produto = código (ou nome) → nunca duplica dentro do grupo
                 g.putIfAbsent(p.codigo.ifEmpty { p.nome }, p)
@@ -138,7 +196,7 @@ object Consulta {
         }
         val lista = grupos.map { (chave, v) ->
             val nome = grafias.getValue(chave).maxByOrNull { it.value }!!.key
-            GrupoPa(chave, nome, v.values.sortedWith(ordemProdutos))
+            GrupoPa(chave, nome, v.values.sortedWith(ordemProdutos), porUnidades)
         }.sortedWith(
             compareByDescending<GrupoPa> { it.volume }
                 .thenByDescending { it.unidades }
@@ -175,6 +233,7 @@ object Consulta {
         maxSeries: Int = 4,
         hoje: String = java.time.LocalDate.now().toString(),
     ): List<Serie> {
+        // porUnidades: cada unidade vale 1 (loja); senão, o volume da embalagem
         if (hist.isEmpty()) return emptyList()
         val datasHist = hist.map { it.data.take(10) }.distinct().sorted()
         if (datasHist.size < 2) return emptyList()
@@ -184,7 +243,8 @@ object Consulta {
 
         return grupos.filter { it.volume > 0 }.take(maxSeries).map { g ->
             val itens = g.produtos.mapNotNull { p ->
-                p.quantidade.emb.porUnidade?.let { Triple(normalizaCodigo(p.codigo), it, p.quantidade.qtd) }
+                val fator = if (g.porUnidades) 1.0 else p.quantidade.emb.porUnidade
+                fator?.let { Triple(normalizaCodigo(p.codigo), it, p.quantidade.qtd) }
             }
             val pontos = datas.map { d ->
                 d to itens.sumOf { (cod, fator, atual) ->
