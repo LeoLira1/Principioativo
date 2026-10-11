@@ -107,6 +107,47 @@ object Turso {
         }.toString()
     }
 
+    /**
+     * Classifica produtos da loja (classe, espécie, segmento) — mesmo efeito do
+     * `salvar_classificacao_vet` do dashboard: `INSERT OR REPLACE` por código
+     * (em MAIÚSCULAS), numa transação. [agora] = "yyyy-MM-dd HH:mm:ss" (Brasília).
+     */
+    fun corpoSalvarClassificacao(
+        codigos: List<String>, classe: String, especie: String, segmento: String, agora: String,
+    ): String {
+        fun exec(sql: String, vararg args: String) = buildJsonObject {
+            put("type", "execute")
+            put("stmt", buildJsonObject {
+                put("sql", sql)
+                if (args.isNotEmpty()) put("args", buildJsonArray {
+                    args.forEach { a -> add(buildJsonObject { put("type", "text"); put("value", a) }) }
+                })
+            })
+        }
+        val chaves = codigos.map { it.trim().uppercase(java.util.Locale.ROOT) }.filter { it.isNotEmpty() }.distinct()
+        return buildJsonObject {
+            put("requests", buildJsonArray {
+                add(exec("BEGIN"))
+                // o dashboard cria a tabela; aqui só garante, com o mesmo formato
+                add(exec(
+                    "CREATE TABLE IF NOT EXISTS classificacao_vet (codigo TEXT PRIMARY KEY, classe TEXT NOT NULL, " +
+                        "especie TEXT DEFAULT '', segmento TEXT DEFAULT '', origem TEXT DEFAULT 'manual', " +
+                        "confianca TEXT DEFAULT '', obs TEXT DEFAULT '', atualizado_em TEXT)",
+                ))
+                chaves.forEach { cod ->
+                    add(exec(
+                        "INSERT OR REPLACE INTO classificacao_vet " +
+                            "(codigo, classe, especie, segmento, origem, confianca, obs, atualizado_em) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        cod, classe.trim(), especie.trim(), segmento.trim(), "app", "", "", agora,
+                    ))
+                }
+                add(exec("COMMIT"))
+                add(buildJsonObject { put("type", "close") })
+            })
+        }.toString()
+    }
+
     /** Envia uma escrita; qualquer passo com erro vira exceção com mensagem legível. */
     fun escrever(url: String, token: String, corpo: String) {
         val resp = post(url, token, corpo)

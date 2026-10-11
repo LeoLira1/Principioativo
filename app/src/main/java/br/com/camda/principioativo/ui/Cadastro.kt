@@ -163,6 +163,108 @@ fun DialogoBuscaProduto(
     )
 }
 
+/** Atalhos da classificação veterinária (mesma lista do dashboard; texto livre continua valendo). */
+val CLASSES_VET = listOf(
+    "Vermífugo", "Antibiótico", "Anti-inflamatório", "Antiparasitário externo",
+    "Carrapaticida/Mosquicida", "Vacina", "Soro", "Hormônio/Reprodução",
+    "Vitamina/Suplemento", "Anestésico/Analgésico", "Antitóxico",
+    "Homeopático", "Pomada/Unguento", "Identificação animal", "Material",
+)
+val ESPECIES_VET = listOf("Bovinos", "Equinos", "Suínos", "Aves", "Ovinos/Caprinos", "Cães e Gatos", "Multiespécie", "Material")
+val SEGMENTOS_VET = listOf("Corte", "Leite", "Corte e leite")
+
+/** Classes já usadas no estoque (com a grafia delas) + as sugeridas, sem repetir. */
+fun classesConhecidas(produtos: List<Produto>): List<String> =
+    (produtos.map { it.classe.trim() }.filter { it.isNotEmpty() } + CLASSES_VET).distinctBy { normaliza(it) }
+
+/**
+ * Classifica um ou vários produtos da loja: classe (obrigatória), espécie e
+ * segmento (opcionais). Grava em `classificacao_vet`, igual ao dashboard.
+ */
+@Composable
+fun DialogoClassificarVet(
+    produtos: List<Produto>,
+    classes: List<String>,
+    salvando: Boolean,
+    erro: String?,
+    onSalvar: (String, String, String) -> Unit,
+    onFechar: () -> Unit,
+) {
+    val unico = produtos.singleOrNull()
+    var classe by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.classe.orEmpty()) }
+    var outra by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf("") }
+    var especie by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.especie.orEmpty()) }
+    var segmento by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.segmento.orEmpty()) }
+    val classeFinal = outra.trim().ifEmpty { classe.trim() }
+
+    AlertDialog(
+        onDismissRequest = { if (!salvando) onFechar() },
+        containerColor = Cores.surface,
+        title = {
+            Column {
+                Text("Classificar", color = Cores.text, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    if (unico != null) unico.nome else "${produtos.size} produtos selecionados",
+                    color = Cores.text2, fontSize = 14.sp,
+                )
+            }
+        },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Rotulo("Classe")
+                Spacer(Modifier.padding(4.dp))
+                LinhaEtiquetas {
+                    classes.forEach { c ->
+                        Pilula(c, outra.isBlank() && normaliza(c) == normaliza(classe)) { classe = c; outra = "" }
+                    }
+                }
+                Spacer(Modifier.padding(4.dp))
+                OutlinedTextField(
+                    value = outra, onValueChange = { outra = it }, singleLine = true,
+                    label = { Text("Outra classe (digitar)") }, modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    shape = RaioLinha, colors = camposCores(), enabled = !salvando,
+                )
+                Spacer(Modifier.padding(6.dp))
+                Rotulo("Espécie (opcional)")
+                Spacer(Modifier.padding(4.dp))
+                LinhaEtiquetas {
+                    ESPECIES_VET.forEach { e -> Pilula(e, e == especie) { especie = if (e == especie) "" else e } }
+                }
+                Spacer(Modifier.padding(6.dp))
+                Rotulo("Segmento (opcional)")
+                Spacer(Modifier.padding(4.dp))
+                LinhaEtiquetas {
+                    SEGMENTOS_VET.forEach { g -> Pilula(g, g == segmento) { segmento = if (g == segmento) "" else g } }
+                }
+                Spacer(Modifier.padding(4.dp))
+                Text(
+                    "Grava em classificacao_vet pelo código do produto, igual ao dashboard. Vale também lá.",
+                    color = Cores.label, fontSize = 11.sp, lineHeight = 15.sp,
+                )
+                if (erro != null) {
+                    Spacer(Modifier.padding(4.dp))
+                    Text(erro, color = Cores.crit, fontSize = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSalvar(classeFinal, especie, segmento) },
+                enabled = !salvando && classeFinal.isNotEmpty(),
+                shape = RaioPilula,
+                colors = ButtonDefaults.buttonColors(containerColor = Cores.accent, contentColor = Cores.onAccent),
+            ) {
+                if (salvando) CircularProgressIndicator(Modifier.size(18.dp), color = Cores.onAccent, strokeWidth = 2.dp)
+                else Text("Salvar", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onFechar, enabled = !salvando) { Text("Cancelar", color = Cores.text2) }
+        },
+    )
+}
+
 /**
  * Cadastro/edição do P.A. de um produto. Misturas: um ingrediente por vez
  * (vira "A + B" no banco, o mesmo formato da planilha).

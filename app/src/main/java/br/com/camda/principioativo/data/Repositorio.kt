@@ -64,6 +64,13 @@ class Repositorio(private val ctx: Context) {
         Turso.escrever(c.url, c.token, Turso.corpoSalvarPa(produto, principioAtivo, categoria))
     }
 
+    /** Grava classe/espécie/segmento dos produtos (precisa de token com escrita). */
+    fun salvarClassificacao(c: Credenciais, codigos: List<String>, classe: String, especie: String, segmento: String) {
+        val agora = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        Turso.escrever(c.url, c.token, Turso.corpoSalvarClassificacao(codigos, classe, especie, segmento, agora))
+    }
+
     fun cache(): Pair<Snapshot, Long>? = runCatching {
         if (!arquivoCache.exists()) return null
         Turso.parse(arquivoCache.readText()) to (arquivoData.readText().trim().toLongOrNull() ?: 0L)

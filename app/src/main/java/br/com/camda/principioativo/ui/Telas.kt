@@ -3,6 +3,7 @@ package br.com.camda.principioativo.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -654,6 +656,26 @@ fun TelaDetalhe(chave: String, v: Vista, estado: Estado, vm: MainViewModel) {
         )
     }
 
+    // Loja: classificar (classe/espécie/segmento) um produto ou vários marcados de uma vez
+    var selecionando by remember { mutableStateOf(false) }
+    val marcados = remember { mutableStateListOf<String>() }
+    var classificando by remember { mutableStateOf<List<Produto>?>(null) }
+    val classes = remember(v.produtos) { classesConhecidas(v.produtos) }
+    classificando?.let { lista ->
+        DialogoClassificarVet(
+            produtos = lista,
+            classes = classes,
+            salvando = estado.salvando,
+            erro = estado.aviso?.takeIf { !it.first }?.second,
+            onSalvar = { c, e, g ->
+                vm.salvarClassificacao(lista, c, e, g) { ok ->
+                    if (ok) { classificando = null; marcados.clear(); selecionando = false }
+                }
+            },
+            onFechar = { classificando = null; vm.limparAviso() },
+        )
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val largo = maxWidth >= 720.dp
         LazyColumn(
@@ -674,9 +696,35 @@ fun TelaDetalhe(chave: String, v: Vista, estado: Estado, vm: MainViewModel) {
                         else "${produtos.size} produtos"
                         Text(sub, color = Cores.label, fontSize = 12.sp)
                     }
+                    if (v.vet && produtos.isNotEmpty()) {
+                        TextButton(onClick = { selecionando = !selecionando; marcados.clear() }) {
+                            Text(if (selecionando) "Cancelar" else "Selecionar", color = Cores.accent, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
-            if (editando == null) estado.aviso?.let { a ->
+            if (selecionando) {
+                item {
+                    Row(mod, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val todos = produtos.map { it.codigo + "|" + it.nome }
+                        Pilula(if (marcados.size == todos.size) "Desmarcar todos" else "Marcar todos", false) {
+                            if (marcados.size == todos.size) marcados.clear()
+                            else { marcados.clear(); marcados.addAll(todos) }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Button(
+                            onClick = {
+                                vm.limparAviso()
+                                classificando = produtos.filter { (it.codigo + "|" + it.nome) in marcados }
+                            },
+                            enabled = marcados.isNotEmpty(),
+                            shape = RaioPilula,
+                            colors = ButtonDefaults.buttonColors(containerColor = Cores.accent, contentColor = Cores.onAccent),
+                        ) { Text("Classificar ${marcados.size}", fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            if (editando == null && classificando == null) estado.aviso?.let { a ->
                 item { FaixaAviso(a, vm::limparAviso, mod) }
             }
             if (semPa) {
@@ -715,11 +763,23 @@ fun TelaDetalhe(chave: String, v: Vista, estado: Estado, vm: MainViewModel) {
                 item { Card(mod) { Text("Nenhum produto com os filtros atuais.", color = Cores.muted) } }
             }
             items(produtos, key = { it.codigo + "|" + it.nome }) { p ->
-                CardProduto(
-                    p, chave, v.vet, mod,
-                    onEditar = { vm.limparAviso(); editando = p },
-                    abrirClasse = { c -> vm.abrir(PREFIXO_CLASSE + chavePa(c)) },
-                ) { outro -> vm.abrir(chavePa(outro)) }
+                val k = p.codigo + "|" + p.nome
+                val marcado = k in marcados
+                Box(
+                    mod.clip(RaioLinha)
+                        .then(if (selecionando) Modifier.border(2.dp, if (marcado) Cores.accent else Color.Transparent, RaioLinha) else Modifier)
+                        .then(
+                            if (selecionando) Modifier.clickable { if (marcado) marcados.remove(k) else marcados.add(k) }
+                            else Modifier,
+                        ),
+                ) {
+                    CardProduto(
+                        p, chave, v.vet, Modifier.fillMaxWidth(),
+                        onEditar = { vm.limparAviso(); editando = p },
+                        abrirClasse = { c -> vm.abrir(PREFIXO_CLASSE + chavePa(c)) },
+                        onClassificar = if (v.vet && !selecionando) ({ vm.limparAviso(); classificando = listOf(p) }) else null,
+                    ) { outro -> vm.abrir(chavePa(outro)) }
+                }
             }
             item { Espaco(24) }
         }
@@ -742,7 +802,8 @@ private fun infoCatalogo(chave: String, catalogo: List<InfoCatalogo>): List<Pair
 @Composable
 private fun CardProduto(
     p: Produto, chaveAtual: String, vet: Boolean, modifier: Modifier,
-    onEditar: () -> Unit, abrirClasse: (String) -> Unit, abrirPa: (String) -> Unit,
+    onEditar: () -> Unit, abrirClasse: (String) -> Unit, onClassificar: (() -> Unit)? = null,
+    abrirPa: (String) -> Unit,
 ) {
     val q = p.quantidade
     Column(
@@ -783,6 +844,14 @@ private fun CardProduto(
                 }
                 if (p.especie.isNotBlank()) Etiqueta(p.especie)
                 if (p.segmento.isNotBlank()) Etiqueta(p.segmento)
+            }
+            if (onClassificar != null) {
+                Text(
+                    if (p.classe.isBlank()) "Classificar" else "Editar classe",
+                    color = Cores.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clip(RaioPilula).clickable(onClick = onClassificar)
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                )
             }
         }
         if (p.locais.isNotEmpty()) {
