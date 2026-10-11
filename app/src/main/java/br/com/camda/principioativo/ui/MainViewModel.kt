@@ -121,6 +121,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Classifica vários produtos de uma vez e relê o banco. */
+    fun salvarClassificacao(
+        produtos: List<Produto>, classe: String, especie: String, segmento: String, aoTerminar: (Boolean) -> Unit,
+    ) {
+        val cred = runCatching { repo.credenciais() }.getOrNull() ?: return
+        if (classe.isBlank() || produtos.isEmpty()) return
+        _estado.update { it.copy(salvando = true, aviso = null) }
+        viewModelScope.launch {
+            val ok = try {
+                withContext(Dispatchers.IO) {
+                    repo.salvarClassificacao(cred, produtos.map { it.codigo }, classe, especie, segmento)
+                }
+                val (snap, quando) = withContext(Dispatchers.IO) { repo.atualizar(cred) }
+                aplicar(snap, quando)
+                val n = produtos.size
+                _estado.update { it.copy(salvando = false, aviso = true to "$n produto${if (n != 1) "s" else ""} → ${classe.trim()}") }
+                true
+            } catch (e: Exception) {
+                _estado.update { it.copy(salvando = false, aviso = false to (e.message ?: e.javaClass.simpleName)) }
+                false
+            }
+            aoTerminar(ok)
+        }
+    }
+
     fun limparAviso() = _estado.update { it.copy(aviso = null) }
 
     fun filtros(f: Filtros) = _estado.update { it.copy(filtros = f) }

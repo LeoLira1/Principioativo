@@ -38,6 +38,9 @@ Adubos, adjuvantes, sementes, rações etc. não entram em nenhum dos dois.
 
 
 - **Vincular P.A. (botão ➕ no topo)**: busca inteligente em TODOS os produtos do estoque (qualquer setor/categoria), sem acento, fora de ordem e com erro de digitação; toque no produto e cadastre o P.A.
+- **Classificar a Loja Vet**: na loja, abra um grupo (ex.: *Sem classificação*) → **Selecionar**, marque
+  vários produtos e **Classificar N** (classe, espécie e segmento); ou toque em **Classificar** num produto.
+  Grava em `classificacao_vet` (por código) do mesmo jeito que o dashboard. Precisa de token **com escrita**.
 - **Busca única**: P.A., nome ou código, parcial, sem diferenciar maiúsculas nem acentos.
 - **Rosca segmentada** (top 8 + "Outros"), com % na fatia e linha-guia até o rótulo.
 - **Barras em pílula** com trilho e valor no topo (top 8 por volume).

@@ -71,4 +71,36 @@ class CadastroPaTest {
         assertEquals(listOf("12"), buscarProdutos(lista, "12").map { it.codigo })
         assertTrue(buscarProdutos(lista, "  ").isEmpty())
     }
+
+    @Test fun corpoDaClassificacaoIgualAoDashboard() {
+        val corpo = Json.parseToJsonElement(
+            Turso.corpoSalvarClassificacao(listOf(" 123 ", "ab9", "123"), " Vermífugo ", "Bovinos", "", "2026-10-11 11:30:00"),
+        )
+        val reqs = corpo.jsonObject["requests"]!!.jsonArray
+        val sqls = reqs.mapNotNull { it.jsonObject["stmt"]?.jsonObject?.get("sql")?.jsonPrimitive?.content }
+        assertEquals("BEGIN", sqls.first())
+        assertEquals("COMMIT", sqls.last())
+        val inserts = reqs.filter {
+            it.jsonObject["stmt"]?.jsonObject?.get("sql")?.jsonPrimitive?.content?.startsWith("INSERT OR REPLACE INTO classificacao_vet") == true
+        }
+        assertEquals(2, inserts.size) // código repetido não duplica
+        val args = inserts[0].jsonObject["stmt"]!!.jsonObject["args"]!!.jsonArray
+            .map { it.jsonObject["value"]!!.jsonPrimitive.content }
+        assertEquals(listOf("123", "Vermífugo", "Bovinos", "", "app", "", "", "2026-10-11 11:30:00"), args)
+        assertEquals("AB9", inserts[1].jsonObject["stmt"]!!.jsonObject["args"]!!.jsonArray[0].jsonObject["value"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun classesConhecidasUsaGrafiaDoEstoqueSemRepetir() {
+        val lista = classesConhecidas(
+            listOf(
+                prod("1", "A").copy(classe = "vermifugo"),
+                prod("2", "B").copy(classe = "Pomada/Unguento"),
+                prod("3", "C").copy(classe = "Probiótico"),
+            ),
+        )
+        assertEquals("vermifugo", lista.first()) // a grafia usada no estoque vence
+        assertEquals(1, lista.count { it.lowercase().startsWith("vermifugo") || it == "Vermífugo" })
+        assertEquals(1, lista.count { it == "Pomada/Unguento" })
+        assertTrue("Probiótico" in lista)
+    }
 }
