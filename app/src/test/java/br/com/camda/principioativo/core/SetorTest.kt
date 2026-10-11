@@ -41,6 +41,14 @@ class SetorTest {
         assertEquals(Setor.OUTRO, setor("21"))
     }
 
+    @Test fun defensivoComCategoriaDiferenteVaiParaBarracaoPeloNome() {
+        assertEquals(Setor.BARRACAO, Consulta.setorDe("", false, "INSETICIDA KARATE ZEON 250 CS 1L"))
+        assertEquals(Setor.BARRACAO, Consulta.setorDe("DEFENSIVOS", false, "Herbicida Glifosato 20L"))
+        assertEquals(Setor.OUTRO, Consulta.setorDe("", false, "ADUBO FOLIAR ZN 1L"))
+        // categoria vet continua mandando na loja
+        assertEquals(Setor.LOJA_VET, Consulta.setorDe("VERMIFUGOS", false, "INSETICIDA X"))
+    }
+
     @Test fun lojaPorCategoriaOuClasse() {
         listOf("10", "11", "12").forEach { assertEquals(it, Setor.LOJA_VET, setor(it)) }
         assertEquals(Setor.LOJA_VET, setor("13")) // categoria genérica, mas tem classe vet

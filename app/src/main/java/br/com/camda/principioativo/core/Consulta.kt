@@ -57,11 +57,13 @@ object Consulta {
      * Setor pela categoria do BI. Produto com classe em `classificacao_vet`
      * é da loja mesmo que a categoria venha genérica.
      */
-    fun setorDe(categoria: String, temClasseVet: Boolean): Setor {
+    fun setorDe(categoria: String, temClasseVet: Boolean, nome: String = ""): Setor {
         val c = chavePa(categoria)
         return when {
             PREFIXOS_BARRACAO.any { c.startsWith(it) } -> Setor.BARRACAO
             c in CATEGORIAS_VET || c.startsWith("MEDICAMENTO") || c.startsWith("VACINA") || temClasseVet -> Setor.LOJA_VET
+            // categoria vazia/diferente, mas o nome diz o que é: "INSETICIDA KARATE ZEON…"
+            PREFIXOS_BARRACAO.any { chavePa(nome).startsWith(it) } -> Setor.BARRACAO
             else -> Setor.OUTRO
         }
     }
@@ -123,7 +125,7 @@ object Consulta {
                 quantidade = Quantidade(maxOf(l.qtdSistema, 0.0), Embalagem.deNome(l.produto)),
                 pas = pas,
                 locais = locais.sortedBy { it.posKey },
-                setor = setorDe(l.categoria, cv != null && cv.classe.isNotBlank()),
+                setor = setorDe(l.categoria, cv != null && cv.classe.isNotBlank(), l.produto),
                 classe = cv?.classe?.trim().orEmpty(),
                 especie = cv?.especie?.trim().orEmpty(),
                 segmento = cv?.segmento?.trim().orEmpty(),
