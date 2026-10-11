@@ -50,6 +50,7 @@ import br.com.camda.principioativo.core.Difflib
 import br.com.camda.principioativo.core.InfoCatalogo
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
+import br.com.camda.principioativo.core.Setor
 import br.com.camda.principioativo.core.normaliza
 import br.com.camda.principioativo.core.normalizaCodigo
 
@@ -147,7 +148,8 @@ fun DialogoBuscaProduto(
                                 Text(p.nome, color = Cores.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     (if (p.pas.isEmpty()) "⚠️ sem P.A." else "✅ " + p.pas.joinToString(" + ")) +
-                                        (if (p.categoria.isNotBlank()) " · ${p.categoria}" else ""),
+                                        " · " + p.categoria.ifBlank { "sem categoria" } +
+                                        " · " + (if (p.setor == Setor.OUTRO) "fora das listas" else p.setor.rotulo),
                                     color = if (p.pas.isEmpty()) Cores.warn else Cores.ok, fontSize = 12.sp,
                                 )
                             }
