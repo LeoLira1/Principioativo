@@ -28,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -201,6 +202,9 @@ private fun CampoConexao(valor: String, mudou: (String) -> Unit, rotulo: String,
 fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
     var painelAberto by rememberSaveable { mutableStateOf(false) }
     var config by remember { mutableStateOf(false) }
+    var buscandoProduto by remember { mutableStateOf(false) }
+    var vinculando by remember { mutableStateOf<Produto?>(null) }
+    val conhecidosTodos = remember(estado.produtos, estado.catalogo) { paConhecidos(estado.produtos, estado.catalogo) }
     val porClasse = v.vet && estado.porClasse
     val res = v.principal(estado.porClasse)
     val oQue = if (porClasse) "classe" else "P.A."
@@ -217,6 +221,24 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
         if (!v.vet) emptyList() else v.produtos.map { it.especie.ifBlank { "—" } }.distinct().sorted()
     }
 
+    if (buscandoProduto) {
+        DialogoBuscaProduto(
+            produtos = estado.produtos,
+            onEscolher = { vinculando = it; buscandoProduto = false },
+            onFechar = { buscandoProduto = false },
+        )
+    }
+    vinculando?.let { p ->
+        DialogoCadastroPa(
+            produto = p,
+            conhecidos = conhecidosTodos,
+            salvando = estado.salvando,
+            erro = estado.aviso?.takeIf { !it.first }?.second,
+            onSalvar = { pas, cat -> vm.salvarPa(p, pas, cat) { ok -> if (ok) vinculando = null } },
+            onFechar = { vinculando = null; vm.limparAviso() },
+        )
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val largo = maxWidth >= 720.dp
         LazyColumn(
@@ -226,7 +248,10 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val mod = Modifier.widthIn(max = 1100.dp).fillMaxWidth()
-            item { Cabecalho(estado, vm, onConfig = { config = true }, modifier = mod) }
+            item { Cabecalho(estado, vm, onConfig = { config = true }, onVincular = { buscandoProduto = true }, modifier = mod) }
+            if (vinculando == null) estado.aviso?.let { a ->
+                item { FaixaAviso(a, vm::limparAviso, mod) }
+            }
             item {
                 Row(mod, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(Setor.BARRACAO, Setor.LOJA_VET).forEach { s ->
@@ -357,7 +382,7 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
 }
 
 @Composable
-private fun Cabecalho(estado: Estado, vm: MainViewModel, onConfig: () -> Unit, modifier: Modifier) {
+private fun Cabecalho(estado: Estado, vm: MainViewModel, onConfig: () -> Unit, onVincular: () -> Unit, modifier: Modifier) {
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(6.dp).height(36.dp).clip(RaioPilula).background(Cores.accent))
@@ -371,6 +396,9 @@ private fun Cabecalho(estado: Estado, vm: MainViewModel, onConfig: () -> Unit, m
                     "atualizado " + SimpleDateFormat("dd/MM HH:mm", Locale("pt", "BR")).format(Date(estado.atualizadoEm))
                 else "sem dados ainda"
                 Text(quando, color = Cores.label, fontSize = 12.sp)
+            }
+            IconButton(onClick = onVincular, enabled = estado.produtos.isNotEmpty()) {
+                Icon(Icons.Filled.Add, "Vincular P.A. a um produto", tint = Cores.accent)
             }
             IconButton(onClick = vm::atualizar, enabled = !estado.carregando) {
                 Icon(Icons.Filled.Refresh, "Atualizar", tint = Cores.text2)
