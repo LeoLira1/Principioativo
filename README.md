@@ -26,6 +26,17 @@ credencial no código nem no APK. Em ⚙️ dá para desconectar e apagar tudo.
 
 ## O que tem
 
+Dois setores, trocados no topo da tela:
+
+- **🌾 Barracão**: herbicidas, fungicidas, inseticidas e nematicidas, agrupados por P.A.,
+  estoque em litros/kg e na unidade física.
+- **💊 Loja Vet**: medicamentos veterinários (grupos de medicamento do BI + códigos com
+  classe em `classificacao_vet`), agrupados por **classe terapêutica** ou por **P.A.**,
+  estoque em unidades, filtro por espécie.
+
+Adubos, adjuvantes, sementes, rações etc. não entram em nenhum dos dois.
+
+
 - **Busca única**: P.A., nome ou código, parcial, sem diferenciar maiúsculas nem acentos.
 - **Rosca segmentada** (top 8 + "Outros"), com % na fatia e linha-guia até o rótulo.
 - **Barras em pílula** com trilho e valor no topo (top 8 por volume).

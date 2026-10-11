@@ -76,6 +76,9 @@ import br.com.camda.principioativo.core.Resultado
 import br.com.camda.principioativo.core.TipoEmbalagem
 import br.com.camda.principioativo.core.fmtInt
 import br.com.camda.principioativo.core.fmtNum
+import br.com.camda.principioativo.core.CLASSE_SEM
+import br.com.camda.principioativo.core.PREFIXO_CLASSE
+import br.com.camda.principioativo.core.Setor
 import br.com.camda.principioativo.core.chavePa
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,19 +95,35 @@ fun App(vm: MainViewModel, estado: Estado) {
             TelaConexao(estado, vm::conectar)
             return@Box
         }
-        val filtrados = remember(estado.produtos, estado.filtros) {
-            Consulta.aplicaFiltros(estado.produtos, estado.filtros)
-        }
-        val resultado = remember(filtrados) { Consulta.agrupar(filtrados) }
+        val doSetor = remember(estado.produtos, estado.setor) { estado.produtos.filter { it.setor == estado.setor } }
+        val filtrados = remember(doSetor, estado.filtros) { Consulta.aplicaFiltros(doSetor, estado.filtros) }
+        val vet = estado.setor == Setor.LOJA_VET
+        val resPa = remember(filtrados, vet) { Consulta.agrupar(filtrados, porUnidades = vet) { it.pas } }
+        val resClasse = remember(filtrados, vet) { if (vet) Consulta.agruparPorClasse(filtrados) else null }
+        val vista = Vista(estado.setor, resPa, resClasse, doSetor)
 
         val aberto = estado.paAberto
         if (aberto != null) {
             BackHandler { vm.abrir(null) }
-            TelaDetalhe(aberto, resultado, estado, vm)
+            TelaDetalhe(aberto, vista, estado, vm)
         } else {
-            TelaInicial(resultado, estado, vm)
+            TelaInicial(vista, estado, vm)
         }
     }
+}
+
+/**
+ * O que a tela mostra de um setor: grupos por P.A. (sempre) e, na loja,
+ * também por classe terapêutica. [produtos] = setor sem filtros.
+ */
+data class Vista(
+    val setor: Setor,
+    val pa: Resultado,
+    val classe: Resultado?,
+    val produtos: List<Produto>,
+) {
+    val vet: Boolean get() = setor == Setor.LOJA_VET
+    fun principal(porClasse: Boolean): Resultado = if (vet && porClasse && classe != null) classe else pa
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -179,16 +198,23 @@ private fun CampoConexao(valor: String, mudou: (String) -> Unit, rotulo: String,
 // ═════════════════════════════════════════════════════════════════════════════
 
 @Composable
-fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
+fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
     var painelAberto by rememberSaveable { mutableStateOf(false) }
     var config by remember { mutableStateOf(false) }
+    val porClasse = v.vet && estado.porClasse
+    val res = v.principal(estado.porClasse)
+    val oQue = if (porClasse) "classe" else "P.A."
+    val medida = if (v.vet) "unidades" else "L + kg"
     val fatias = remember(res) { Consulta.fatias(res.grupos, 10) }
     val barras = remember(res) { res.grupos.filter { it.volume > 0 }.take(8).map { br.com.camda.principioativo.core.Fatia(it.nome, it.volume, it.chave) } }
     val series = remember(res, estado.snapshot) {
         Consulta.historico(res.grupos, estado.snapshot?.historico ?: emptyList(), 4)
     }
-    val categorias = remember(estado.produtos) {
-        estado.produtos.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
+    val categorias = remember(v.produtos) {
+        v.produtos.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val especies = remember(v.produtos) {
+        if (!v.vet) emptyList() else v.produtos.map { it.especie.ifBlank { "—" } }.distinct().sorted()
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -202,39 +228,62 @@ fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
             val mod = Modifier.widthIn(max = 1100.dp).fillMaxWidth()
             item { Cabecalho(estado, vm, onConfig = { config = true }, modifier = mod) }
             item {
-                Column(mod) {
-                    CampoBusca(estado.filtros.busca) { vm.filtros(estado.filtros.copy(busca = it)) }
-                    Espaco(8)
-                    BotaoFiltros(estado.filtros.ativosNoPainel, painelAberto) { painelAberto = !painelAberto }
-                    AnimatedVisibility(painelAberto) {
-                        PainelFiltros(estado.filtros, categorias, vm::filtros)
+                Row(mod, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(Setor.BARRACAO, Setor.LOJA_VET).forEach { s ->
+                        Pilula(s.rotulo, estado.setor == s) { vm.setor(s) }
                     }
                 }
             }
-            if (estado.produtos.isEmpty()) {
+            item {
+                Column(mod) {
+                    CampoBusca(estado.filtros.busca, v.vet) { vm.filtros(estado.filtros.copy(busca = it)) }
+                    Espaco(8)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BotaoFiltros(estado.filtros.ativosNoPainel, painelAberto) { painelAberto = !painelAberto }
+                        if (v.vet) {
+                            Spacer(Modifier.weight(1f))
+                            Text("Agrupar:", color = Cores.label, fontSize = 12.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Pilula("Classe", estado.porClasse) { vm.porClasse(true) }
+                            Spacer(Modifier.width(6.dp))
+                            Pilula("P.A.", !estado.porClasse) { vm.porClasse(false) }
+                        }
+                    }
+                    AnimatedVisibility(painelAberto) {
+                        PainelFiltros(estado.filtros, v.vet, categorias, especies, vm::filtros)
+                    }
+                }
+            }
+            if (v.produtos.isEmpty()) {
                 item {
                     Card(mod) {
                         Text(
-                            if (estado.carregando) "Carregando estoque…" else "Nenhum produto no estoque ainda.",
+                            when {
+                                estado.carregando -> "Carregando estoque…"
+                                estado.produtos.isEmpty() -> "Nenhum produto no estoque ainda."
+                                v.vet -> "Nenhum medicamento encontrado. A loja usa as categorias de medicamentos do BI " +
+                                    "e os códigos com classe em classificacao_vet."
+                                else -> "Nenhum herbicida, fungicida, inseticida ou nematicida no estoque."
+                            },
                             color = Cores.muted,
                         )
                     }
                 }
                 return@LazyColumn
             }
-            item { Kpis(res, mod, largo) }
+            item { Kpis(v, mod, largo) }
 
             if (fatias.isNotEmpty()) {
                 item {
                     if (largo) {
                         Row(mod, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            CardRosca(fatias, vm, Modifier.weight(1.15f))
-                            CardBarras(barras, vm, Modifier.weight(1f))
+                            CardRosca(fatias, oQue, medida, vm, Modifier.weight(1.15f))
+                            CardBarras(barras, oQue, medida, vm, Modifier.weight(1f))
                         }
                     } else {
                         Column(mod, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            CardRosca(fatias, vm, Modifier)
-                            CardBarras(barras, vm, Modifier)
+                            CardRosca(fatias, oQue, medida, vm, Modifier)
+                            CardBarras(barras, oQue, medida, vm, Modifier)
                         }
                     }
                 }
@@ -243,7 +292,7 @@ fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
                 item {
                     Card(mod) {
                         Rotulo("Evolução do estoque")
-                        Text("Top ${series.size} P.A. · L + kg por dia de upload", color = Cores.label, fontSize = 11.sp)
+                        Text("Top ${series.size} ${if (oQue == "classe") "classes" else oQue} · $medida por dia de upload", color = Cores.label, fontSize = 11.sp)
                         Espaco(8)
                         LinhaEtiquetas {
                             series.forEachIndexed { i, s ->
@@ -259,9 +308,9 @@ fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
                 }
             }
 
-            item { Box(mod) { TituloSecao("Princípios ativos", "(${res.grupos.size})") } }
+            item { Box(mod) { TituloSecao(if (porClasse) "Classes terapêuticas" else "Princípios ativos", "(${res.grupos.size})") } }
             if (res.grupos.isEmpty()) {
-                item { Card(mod) { Text("Nenhum P.A. com os filtros atuais.", color = Cores.muted) } }
+                item { Card(mod) { Text("Nenhum grupo com os filtros atuais.", color = Cores.muted) } }
             }
             val maxVol = res.grupos.maxOfOrNull { it.volume }?.takeIf { it > 0 } ?: 1.0
             items(res.grupos, key = { it.chave }) { g ->
@@ -272,10 +321,12 @@ fun TelaInicial(res: Resultado, estado: Estado, vm: MainViewModel) {
             item {
                 Column(mod) {
                     TituloSecao("Falta mapear")
-                    LinhaSemPa(res.semPa.size) { vm.abrir(CHAVE_SEM_PA) }
+                    LinhaSemPa(v.pa.semPa.size) { vm.abrir(CHAVE_SEM_PA) }
                     Espaco(10)
                     Text(
-                        "Misturas (ex.: Diuron + Hexazinona) entram no grupo de cada P.A., então a soma " +
+                        if (v.vet) "Classe terapêutica vem da classificação vet do dashboard (📉 Cobertura). " +
+                            "Produto com mais de um P.A. entra no grupo de cada um. Estoque em unidades."
+                        else "Misturas (ex.: Diuron + Hexazinona) entram no grupo de cada P.A., então a soma " +
                             "dos grupos pode passar do total do estoque. Volume = litros + kg.",
                         color = Cores.label, fontSize = 11.sp, lineHeight = 15.sp,
                     )
@@ -312,7 +363,10 @@ private fun Cabecalho(estado: Estado, vm: MainViewModel, onConfig: () -> Unit, m
             Box(Modifier.width(6.dp).height(36.dp).clip(RaioPilula).background(Cores.accent))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Princípios Ativos", color = Cores.text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    if (estado.setor == Setor.LOJA_VET) "Loja Veterinária" else "Barracão · Defensivos",
+                    color = Cores.text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+                )
                 val quando = if (estado.atualizadoEm > 0)
                     "atualizado " + SimpleDateFormat("dd/MM HH:mm", Locale("pt", "BR")).format(Date(estado.atualizadoEm))
                 else "sem dados ainda"
@@ -348,10 +402,12 @@ private fun Cabecalho(estado: Estado, vm: MainViewModel, onConfig: () -> Unit, m
 }
 
 @Composable
-private fun CampoBusca(valor: String, mudou: (String) -> Unit) {
+private fun CampoBusca(valor: String, vet: Boolean, mudou: (String) -> Unit) {
     TextField(
         value = valor, onValueChange = mudou, singleLine = true,
-        placeholder = { Text("P.A., nome ou código do produto…", color = Cores.label) },
+        placeholder = {
+            Text(if (vet) "P.A., classe, nome ou código…" else "P.A., nome ou código do produto…", color = Cores.label)
+        },
         leadingIcon = { Icon(Icons.Filled.Search, null, tint = Cores.label) },
         trailingIcon = {
             if (valor.isNotEmpty()) IconButton(onClick = { mudou("") }) { Icon(Icons.Filled.Close, "Limpar", tint = Cores.label) }
@@ -387,20 +443,36 @@ private fun BotaoFiltros(ativos: Int, aberto: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PainelFiltros(f: Filtros, categorias: List<String>, mudou: (Filtros) -> Unit) {
+private fun PainelFiltros(
+    f: Filtros, vet: Boolean, categorias: List<String>, especies: List<String>, mudou: (Filtros) -> Unit,
+) {
     Card(Modifier.padding(top = 6.dp)) {
         Rotulo("Estoque")
         Espaco(8)
         LinhaEtiquetas {
             FiltroEstoque.entries.forEach { e -> Pilula(e.rotulo, f.estoque == e) { mudou(f.copy(estoque = e)) } }
         }
-        Espaco(14)
-        Rotulo("Embalagem")
-        Espaco(8)
-        LinhaEtiquetas {
-            TipoEmbalagem.entries.forEach { t ->
-                Pilula(t.rotulo, t in f.embalagens) {
-                    mudou(f.copy(embalagens = if (t in f.embalagens) f.embalagens - t else f.embalagens + t))
+        if (!vet) {
+            Espaco(14)
+            Rotulo("Embalagem")
+            Espaco(8)
+            LinhaEtiquetas {
+                TipoEmbalagem.entries.forEach { t ->
+                    Pilula(t.rotulo, t in f.embalagens) {
+                        mudou(f.copy(embalagens = if (t in f.embalagens) f.embalagens - t else f.embalagens + t))
+                    }
+                }
+            }
+        }
+        if (especies.isNotEmpty()) {
+            Espaco(14)
+            Rotulo("Espécie")
+            Espaco(8)
+            LinhaEtiquetas {
+                especies.forEach { e ->
+                    Pilula(if (e == "—") "Sem espécie" else e, e in f.especies) {
+                        mudou(f.copy(especies = if (e in f.especies) f.especies - e else f.especies + e))
+                    }
                 }
             }
         }
@@ -424,17 +496,26 @@ private fun PainelFiltros(f: Filtros, categorias: List<String>, mudou: (Filtros)
 }
 
 @Composable
-private fun Kpis(res: Resultado, modifier: Modifier, largo: Boolean) {
-    // Só produtos com P.A.: rações, adubos e afins (sem P.A.) inflavam o total de kg.
-    val comPa = res.grupos.flatMap { it.produtos }.distinctBy { it.codigo + "|" + it.nome }
-    val litros = comPa.sumOf { it.quantidade.litros }
-    val kg = comPa.sumOf { it.quantidade.kg }
-    val itens = listOf(
-        Triple("Princípios ativos", fmtInt(res.grupos.size.toDouble()), Cores.ok),
-        Triple("Produtos com P.A.", fmtInt(comPa.size.toDouble()), Cores.info),
-        Triple("Litros", fmtInt(litros), Cores.warn),
-        Triple("Quilos", fmtNum(kg), Cores.purple),
-    )
+private fun Kpis(v: Vista, modifier: Modifier, largo: Boolean) {
+    val res = v.pa
+    val itens = if (v.vet) {
+        val todos = res.grupos.flatMap { it.produtos } + res.semPa
+        listOf(
+            Triple("Classes", fmtInt((v.classe?.grupos?.size ?: 0).toDouble()), Cores.ok),
+            Triple("Produtos", fmtInt(res.totalProdutos.toDouble()), Cores.info),
+            Triple("Unidades", fmtInt(todos.distinctBy { it.codigo + "|" + it.nome }.sumOf { it.quantidade.qtd }), Cores.warn),
+            Triple("Princípios ativos", fmtInt(res.grupos.size.toDouble()), Cores.purple),
+        )
+    } else {
+        // Só produtos com P.A.: o que está sem P.A. aparece no grupo próprio.
+        val comPa = res.grupos.flatMap { it.produtos }.distinctBy { it.codigo + "|" + it.nome }
+        listOf(
+            Triple("Princípios ativos", fmtInt(res.grupos.size.toDouble()), Cores.ok),
+            Triple("Produtos com P.A.", fmtInt(comPa.size.toDouble()), Cores.info),
+            Triple("Litros", fmtInt(comPa.sumOf { it.quantidade.litros }), Cores.warn),
+            Triple("Quilos", fmtNum(comPa.sumOf { it.quantidade.kg }), Cores.purple),
+        )
+    }
     if (largo) {
         Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             itens.forEach { (t, v, c) -> Kpi(t, v, c, Modifier.weight(1f)) }
@@ -451,20 +532,24 @@ private fun Kpis(res: Resultado, modifier: Modifier, largo: Boolean) {
 }
 
 @Composable
-private fun CardRosca(fatias: List<br.com.camda.principioativo.core.Fatia>, vm: MainViewModel, modifier: Modifier) {
+private fun CardRosca(
+    fatias: List<br.com.camda.principioativo.core.Fatia>, oQue: String, medida: String, vm: MainViewModel, modifier: Modifier,
+) {
     Card(modifier) {
-        Rotulo("Distribuição por P.A.")
-        Text("Volume (L + kg) · toque numa fatia para abrir", color = Cores.label, fontSize = 11.sp)
+        Rotulo("Distribuição por $oQue")
+        Text("Em $medida · toque numa fatia para abrir", color = Cores.label, fontSize = 11.sp)
         Espaco(4)
         Rosca(fatias, onToque = vm::abrir)
     }
 }
 
 @Composable
-private fun CardBarras(barras: List<br.com.camda.principioativo.core.Fatia>, vm: MainViewModel, modifier: Modifier) {
+private fun CardBarras(
+    barras: List<br.com.camda.principioativo.core.Fatia>, oQue: String, medida: String, vm: MainViewModel, modifier: Modifier,
+) {
     Card(modifier) {
-        Rotulo("Volume em estoque")
-        Text("Top ${barras.size} P.A. · L + kg", color = Cores.label, fontSize = 11.sp)
+        Rotulo("Estoque")
+        Text("Top ${barras.size} ${if (oQue == "classe") "classes" else oQue} · $medida", color = Cores.label, fontSize = 11.sp)
         Espaco(12)
         BarrasPilula(barras, onToque = vm::abrir)
     }
@@ -517,13 +602,17 @@ private fun LinhaSemPa(n: Int, onClick: () -> Unit) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 @Composable
-fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel) {
+fun TelaDetalhe(chave: String, v: Vista, estado: Estado, vm: MainViewModel) {
     val semPa = chave == CHAVE_SEM_PA
-    val grupo = if (semPa) null else res.grupos.find { it.chave == chave }
-    val produtos = if (semPa) res.semPa else grupo?.produtos ?: emptyList()
+    val grupo = if (semPa) null
+    else v.pa.grupos.find { it.chave == chave } ?: v.classe?.grupos?.find { it.chave == chave }
+    val produtos = if (semPa) v.pa.semPa else grupo?.produtos ?: emptyList()
     val titulo = if (semPa) "Sem P.A. cadastrado" else grupo?.nome ?: "P.A."
-    val info = remember(chave, estado.catalogo) { infoCatalogo(chave, estado.catalogo) }
-    val conhecidos = remember(estado.produtos, estado.catalogo) { paConhecidos(estado.produtos, estado.catalogo) }
+    val info = remember(chave, estado.catalogo, v.vet) { if (v.vet) emptyList() else infoCatalogo(chave, estado.catalogo) }
+    // sugestões do cadastro: P.A. do próprio setor (o catálogo é só de defensivos)
+    val conhecidos = remember(v.produtos, estado.catalogo, v.vet) {
+        paConhecidos(v.produtos, if (v.vet) emptyList() else estado.catalogo)
+    }
     var editando by remember { mutableStateOf<Produto?>(null) }
 
     editando?.let { p ->
@@ -565,7 +654,7 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
             if (semPa) {
                 item {
                     Text(
-                        "Produtos novos que ainda não casaram com nenhum nome da tabela principios_ativos. " +
+                        "Produtos que ainda não casaram com nenhum nome da tabela principios_ativos. " +
                             "Toque em \"Cadastrar P.A.\" no produto para registrar.",
                         mod, color = Cores.muted, fontSize = 12.sp, lineHeight = 17.sp,
                     )
@@ -583,8 +672,13 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
             if (grupo != null) {
                 item {
                     Row(mod, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Kpi("Litros", fmtInt(grupo.litros), Cores.warn, Modifier.weight(1f))
-                        Kpi("Quilos", fmtNum(grupo.kg), Cores.purple, Modifier.weight(1f))
+                        if (grupo.porUnidades) {
+                            Kpi("Unidades", fmtInt(grupo.unidades), Cores.warn, Modifier.weight(1f))
+                            Kpi("Produtos", fmtInt(produtos.size.toDouble()), Cores.info, Modifier.weight(1f))
+                        } else {
+                            Kpi("Litros", fmtInt(grupo.litros), Cores.warn, Modifier.weight(1f))
+                            Kpi("Quilos", fmtNum(grupo.kg), Cores.purple, Modifier.weight(1f))
+                        }
                         Kpi("Com estoque", "${produtos.count { it.temEstoque }}/${produtos.size}", Cores.ok, Modifier.weight(1f))
                     }
                 }
@@ -593,9 +687,11 @@ fun TelaDetalhe(chave: String, res: Resultado, estado: Estado, vm: MainViewModel
                 item { Card(mod) { Text("Nenhum produto com os filtros atuais.", color = Cores.muted) } }
             }
             items(produtos, key = { it.codigo + "|" + it.nome }) { p ->
-                CardProduto(p, chave, mod, onEditar = { vm.limparAviso(); editando = p }) { outro ->
-                    vm.abrir(chavePa(outro))
-                }
+                CardProduto(
+                    p, chave, v.vet, mod,
+                    onEditar = { vm.limparAviso(); editando = p },
+                    abrirClasse = { c -> vm.abrir(PREFIXO_CLASSE + chavePa(c)) },
+                ) { outro -> vm.abrir(chavePa(outro)) }
             }
             item { Espaco(24) }
         }
@@ -617,7 +713,8 @@ private fun infoCatalogo(chave: String, catalogo: List<InfoCatalogo>): List<Pair
 
 @Composable
 private fun CardProduto(
-    p: Produto, chaveAtual: String, modifier: Modifier, onEditar: () -> Unit, abrirPa: (String) -> Unit,
+    p: Produto, chaveAtual: String, vet: Boolean, modifier: Modifier,
+    onEditar: () -> Unit, abrirClasse: (String) -> Unit, abrirPa: (String) -> Unit,
 ) {
     val q = p.quantidade
     Column(
@@ -627,7 +724,7 @@ private fun CardProduto(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Codigo(p.codigo)
             Spacer(Modifier.width(8.dp))
-            Etiqueta(q.emb.rotulo)
+            if (!vet) Etiqueta(q.emb.rotulo)
             if (p.categoria.isNotBlank()) {
                 Spacer(Modifier.width(6.dp))
                 Text(p.categoria, color = Cores.label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -638,12 +735,27 @@ private fun CardProduto(
         Espaco(8)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                if (p.temEstoque) q.fisicoTexto() else "Sem estoque",
+                when {
+                    !p.temEstoque -> "Sem estoque"
+                    vet -> "${fmtInt(q.qtd)} un."
+                    else -> q.fisicoTexto()
+                },
                 color = if (p.temEstoque) Cores.text else Cores.crit, fontSize = 14.sp,
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
             )
             val vol = q.volumeTexto()
-            if (p.temEstoque && vol.isNotEmpty()) Text(vol, color = Cores.warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            if (!vet && p.temEstoque && vol.isNotEmpty()) Text(vol, color = Cores.warn, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+        if (vet) {
+            Espaco(10)
+            LinhaEtiquetas {
+                val classe = p.classe.ifBlank { CLASSE_SEM }
+                if (!chaveAtual.startsWith(PREFIXO_CLASSE)) {
+                    Etiqueta("🏷️ $classe", cor = Cores.purple) { abrirClasse(classe) }
+                }
+                if (p.especie.isNotBlank()) Etiqueta(p.especie)
+                if (p.segmento.isNotBlank()) Etiqueta(p.segmento)
+            }
         }
         if (p.locais.isNotEmpty()) {
             Espaco(10)
@@ -659,7 +771,7 @@ private fun CardProduto(
         val outros = p.pas.filter { chavePa(it) != chaveAtual }
         if (outros.isNotEmpty()) {
             Espaco(10)
-            Rotulo(if (chaveAtual == CHAVE_SEM_PA) "P.A." else "Também contém")
+            Rotulo(if (chaveAtual == CHAVE_SEM_PA || chaveAtual.startsWith(PREFIXO_CLASSE)) "P.A." else "Também contém")
             Espaco(6)
             LinhaEtiquetas {
                 outros.forEach { o -> Etiqueta(o, cor = Cores.ok, fundo = Cores.okSoft) { abrirPa(o) } }

@@ -1,5 +1,6 @@
 package br.com.camda.principioativo.data
 
+import br.com.camda.principioativo.core.LinhaClasseVet
 import br.com.camda.principioativo.core.LinhaEstoque
 import br.com.camda.principioativo.core.LinhaHistorico
 import br.com.camda.principioativo.core.LinhaMapa
@@ -48,6 +49,7 @@ object Turso {
          WHERE data_upload >= date('now', '-180 days')
          ORDER BY data_upload
         """.trimIndent(),
+        "SELECT codigo, classe, especie, segmento FROM classificacao_vet",
     )
 
     /** libsql://banco.turso.io → https://banco.turso.io/v2/pipeline */
@@ -156,7 +158,7 @@ object Turso {
         val raiz = json.parseToJsonElement(corpo).jsonObject
         val resultados = raiz["results"]?.jsonArray ?: throw IOException("Resposta do Turso sem 'results'.")
         val avisos = mutableListOf<String>()
-        val nomes = listOf("estoque_mestre", "principios_ativos", "mapa de estoque", "histórico (vendas_historico)")
+        val nomes = listOf("estoque_mestre", "principios_ativos", "mapa de estoque", "histórico (vendas_historico)", "classificação vet")
 
         fun linhas(i: Int): List<List<JsonElement>> {
             val r = resultados.getOrNull(i)?.jsonObject ?: return emptyList()
@@ -185,7 +187,9 @@ object Turso {
             )
         }
         val hist = linhas(3).map { LinhaHistorico(texto(it[0]), texto(it[1]), numero(it[2]) ?: 0.0) }
-        return Snapshot(estoque, pas, mapa, hist, avisos)
+        // cache salvo por versão antiga do app não tem este resultado → lista vazia
+        val classes = linhas(4).map { LinhaClasseVet(texto(it[0]), texto(it[1]), texto(it[2]), texto(it[3])) }
+        return Snapshot(estoque, pas, mapa, hist, avisos, classes)
     }
 
     /** Valor do Hrana: {"type":"text","value":"x"} / integer (string) / float / null. */
