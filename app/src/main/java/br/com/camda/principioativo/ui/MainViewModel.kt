@@ -47,18 +47,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            val (cred, cache, catalogo) = withContext(Dispatchers.IO) {
-                Triple(runCatching { repo.credenciais() }.getOrNull(), repo.cache(), repo.catalogo())
-            }
-            _estado.update { it.copy(conectado = cred != null, catalogo = catalogo) }
-            if (cache != null) aplicar(cache.first, cache.second)
+            // a leitura do Turso já sai enquanto o cache e o catálogo carregam
+            val cred = withContext(Dispatchers.IO) { runCatching { repo.credenciais() }.getOrNull() }
+            _estado.update { it.copy(conectado = cred != null) }
             if (cred != null) atualizar()
+            withContext(Dispatchers.IO) { repo.cache() }?.let { (snap, quando) -> aplicar(snap, quando) }
+            val catalogo = withContext(Dispatchers.IO) { repo.catalogo() }
+            _estado.update { it.copy(catalogo = catalogo) }
         }
     }
 
     private suspend fun aplicar(snap: Snapshot, quando: Long) {
         val produtos = withContext(Dispatchers.Default) { Consulta.montarProdutos(snap) }
-        _estado.update { it.copy(snapshot = snap, produtos = produtos, atualizadoEm = quando) }
+        // cache e leitura do Turso correm juntos na abertura: o mais novo vence
+        _estado.update { if (quando < it.atualizadoEm) it else it.copy(snapshot = snap, produtos = produtos, atualizadoEm = quando) }
     }
 
     fun atualizar() {
