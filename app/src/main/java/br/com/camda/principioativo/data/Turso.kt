@@ -23,17 +23,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Leitura do Turso pela API HTTP do libSQL (`/v2/pipeline`). Só SELECT:
- * o app nunca escreve no banco. As quatro consultas vão numa única
- * requisição; tabela que não existir vira lista vazia + aviso.
+ * Leitura do Turso pela API HTTP do libSQL (`/v2/pipeline`). Duas requisições:
+ * a base (estoque, P.A., mapa, classes), que monta a lista, e o histórico,
+ * que só alimenta o gráfico de linhas e vem depois, sem segurar a abertura.
+ * Tabela que não existir vira lista vazia + aviso.
  */
 object Turso {
 
-    /** Ordem das consultas = ordem dos resultados no pipeline. */
-    val CONSULTAS = listOf(
-        "SELECT codigo, produto, categoria, qtd_sistema FROM estoque_mestre",
-        "SELECT produto, principio_ativo FROM principios_ativos",
-        """
+    private const val SQL_ESTOQUE = "SELECT codigo, produto, categoria, qtd_sistema FROM estoque_mestre"
+    private const val SQL_PAS = "SELECT produto, principio_ativo FROM principios_ativos"
+    private val SQL_MAPA = """
         SELECT p.pos_key, p.quantidade, p.unidade, mp.nome,
                COALESCE(mp.codigo, '') || '|' ||
                COALESCE((SELECT group_concat(c.codigo, '|')
@@ -42,15 +41,25 @@ object Turso {
           FROM mapa_posicoes p
           JOIN mapa_produtos mp ON mp.produto_id = p.produto_id
          WHERE p.produto_id IS NOT NULL
-        """.trimIndent(),
-        """
-        SELECT codigo, data_upload, qtd_estoque
+        """.trimIndent()
+    private const val SQL_CLASSES = "SELECT codigo, classe, especie, segmento FROM classificacao_vet"
+
+    /**
+     * Só o último upload de cada código em cada dia — o único que o gráfico
+     * usa ([br.com.camda.principioativo.core.Consulta.historico] fica com o
+     * último do dia). No SQLite, com `max()`, as outras colunas vêm da mesma
+     * linha do máximo.
+     */
+    val SQL_HISTORICO = """
+        SELECT codigo, max(data_upload) AS d, qtd_estoque
           FROM vendas_historico
          WHERE data_upload >= date('now', '-180 days')
-         ORDER BY data_upload
-        """.trimIndent(),
-        "SELECT codigo, classe, especie, segmento FROM classificacao_vet",
-    )
+         GROUP BY codigo, substr(data_upload, 1, 10)
+         ORDER BY d
+        """.trimIndent()
+
+    /** Ordem das consultas = ordem dos resultados no pipeline. */
+    val CONSULTAS_BASE = listOf(SQL_ESTOQUE, SQL_PAS, SQL_MAPA, SQL_CLASSES)
 
     /** libsql://banco.turso.io → https://banco.turso.io/v2/pipeline */
     fun urlPipeline(url: String): String {
@@ -65,9 +74,9 @@ object Turso {
         return "$u/v2/pipeline"
     }
 
-    fun corpoRequisicao(): String = buildJsonObject {
+    fun corpoRequisicao(consultas: List<String>): String = buildJsonObject {
         put("requests", buildJsonArray {
-            CONSULTAS.forEach { sql ->
+            consultas.forEach { sql ->
                 add(buildJsonObject {
                     put("type", "execute")
                     put("stmt", buildJsonObject { put("sql", sql) })
@@ -167,8 +176,10 @@ object Turso {
     const val MSG_SO_LEITURA =
         "Este token é só de leitura. Para cadastrar, conecte com um token com escrita (⚙️ → Desconectar)."
 
-    /** Faz a requisição e devolve o JSON cru (que também vai pro cache offline). */
-    fun buscar(url: String, token: String): String = post(url, token, corpoRequisicao())
+    /** Faz as requisições e devolvem o JSON cru (que também vai pro cache offline). */
+    fun buscarBase(url: String, token: String): String = post(url, token, corpoRequisicao(CONSULTAS_BASE))
+
+    fun buscarHistorico(url: String, token: String): String = post(url, token, corpoRequisicao(listOf(SQL_HISTORICO)))
 
     private fun post(url: String, token: String, corpo: String): String {
         val con = URL(urlPipeline(url)).openConnection() as HttpURLConnection
@@ -194,43 +205,81 @@ object Turso {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Converte a resposta do pipeline em [Snapshot]. */
-    fun parse(corpo: String): Snapshot {
-        val raiz = json.parseToJsonElement(corpo).jsonObject
-        val resultados = raiz["results"]?.jsonArray ?: throw IOException("Resposta do Turso sem 'results'.")
+    private fun resultados(corpo: String): JsonArray =
+        json.parseToJsonElement(corpo).jsonObject["results"]?.jsonArray
+            ?: throw IOException("Resposta do Turso sem 'results'.")
+
+    /** Linhas do resultado [i]; erro na consulta obrigatória vira exceção, nas outras aviso. */
+    private fun linhas(
+        resultados: JsonArray, i: Int, nome: String, avisos: MutableList<String>, obrigatoria: Boolean = false,
+    ): List<List<JsonElement>> {
+        val r = resultados.getOrNull(i)?.jsonObject ?: return emptyList()
+        if (r["type"]?.jsonPrimitive?.contentOrNull != "ok") {
+            val msg = r["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull ?: "erro"
+            if (obrigatoria) throw IOException("Não consegui ler $nome: $msg")
+            avisos += "Sem $nome: $msg"
+            return emptyList()
+        }
+        val rows = r["response"]?.jsonObject?.get("result")?.jsonObject?.get("rows") as? JsonArray
+            ?: return emptyList()
+        return rows.map { it.jsonArray.toList() }
+    }
+
+    private fun estoque(l: List<List<JsonElement>>) =
+        l.map { LinhaEstoque(texto(it[0]), texto(it[1]), texto(it[2]), numero(it[3]) ?: 0.0) }
+
+    private fun pas(l: List<List<JsonElement>>) = l.map { LinhaPa(texto(it[0]), texto(it[1])) }
+
+    private fun mapa(l: List<List<JsonElement>>) = l.map {
+        LinhaMapa(
+            posKey = texto(it[0]),
+            quantidade = numero(it[1]),
+            unidade = texto(it[2]),
+            nomeProduto = texto(it[3]),
+            codigos = texto(it[4]).split('|').filter { c -> c.isNotBlank() },
+        )
+    }
+
+    private fun historico(l: List<List<JsonElement>>) =
+        l.map { LinhaHistorico(texto(it[0]), texto(it[1]), numero(it[2]) ?: 0.0) }
+
+    private fun classes(l: List<List<JsonElement>>) =
+        l.map { LinhaClasseVet(texto(it[0]), texto(it[1]), texto(it[2]), texto(it[3])) }
+
+    /** Resposta de [CONSULTAS_BASE] → [Snapshot] sem histórico. */
+    fun parseBase(corpo: String): Snapshot {
+        val r = resultados(corpo)
         val avisos = mutableListOf<String>()
-        val nomes = listOf("estoque_mestre", "principios_ativos", "mapa de estoque", "histórico (vendas_historico)", "classificação vet")
+        return Snapshot(
+            estoque = estoque(linhas(r, 0, "estoque_mestre", avisos, obrigatoria = true)),
+            pas = pas(linhas(r, 1, "principios_ativos", avisos)),
+            mapa = mapa(linhas(r, 2, "mapa de estoque", avisos)),
+            historico = emptyList(),
+            avisos = avisos,
+            classes = classes(linhas(r, 3, "classificação vet", avisos)),
+        )
+    }
 
-        fun linhas(i: Int): List<List<JsonElement>> {
-            val r = resultados.getOrNull(i)?.jsonObject ?: return emptyList()
-            if (r["type"]?.jsonPrimitive?.contentOrNull != "ok") {
-                val msg = r["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull ?: "erro"
-                if (i == 0) throw IOException("Não consegui ler estoque_mestre: $msg")
-                avisos += "Sem ${nomes[i]}: $msg"
-                return emptyList()
-            }
-            val rows = r["response"]?.jsonObject?.get("result")?.jsonObject?.get("rows") as? JsonArray
-                ?: return emptyList()
-            return rows.map { it.jsonArray.toList() }
-        }
+    /** Resposta de [SQL_HISTORICO]; tabela ausente vira lista vazia (o gráfico some). */
+    fun parseHistorico(corpo: String): List<LinhaHistorico> =
+        historico(linhas(resultados(corpo), 0, "histórico (vendas_historico)", mutableListOf()))
 
-        val estoque = linhas(0).map {
-            LinhaEstoque(texto(it[0]), texto(it[1]), texto(it[2]), numero(it[3]) ?: 0.0)
-        }
-        val pas = linhas(1).map { LinhaPa(texto(it[0]), texto(it[1])) }
-        val mapa = linhas(2).map {
-            LinhaMapa(
-                posKey = texto(it[0]),
-                quantidade = numero(it[1]),
-                unidade = texto(it[2]),
-                nomeProduto = texto(it[3]),
-                codigos = texto(it[4]).split('|').filter { c -> c.isNotBlank() },
-            )
-        }
-        val hist = linhas(3).map { LinhaHistorico(texto(it[0]), texto(it[1]), numero(it[2]) ?: 0.0) }
-        // cache salvo por versão antiga do app não tem este resultado → lista vazia
-        val classes = linhas(4).map { LinhaClasseVet(texto(it[0]), texto(it[1]), texto(it[2]), texto(it[3])) }
-        return Snapshot(estoque, pas, mapa, hist, avisos, classes)
+    /**
+     * Cache gravado antes da divisão base/histórico: as cinco consultas numa
+     * resposta só (estoque, P.A., mapa, histórico, classes).
+     */
+    fun parse(corpo: String): Snapshot {
+        val r = resultados(corpo)
+        val avisos = mutableListOf<String>()
+        return Snapshot(
+            estoque = estoque(linhas(r, 0, "estoque_mestre", avisos, obrigatoria = true)),
+            pas = pas(linhas(r, 1, "principios_ativos", avisos)),
+            mapa = mapa(linhas(r, 2, "mapa de estoque", avisos)),
+            historico = historico(linhas(r, 3, "histórico (vendas_historico)", avisos)),
+            avisos = avisos,
+            // cache salvo por versão ainda mais antiga não tem este resultado → lista vazia
+            classes = classes(linhas(r, 4, "classificação vet", avisos)),
+        )
     }
 
     /** Valor do Hrana: {"type":"text","value":"x"} / integer (string) / float / null. */

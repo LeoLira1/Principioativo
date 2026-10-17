@@ -30,6 +30,38 @@ class TursoParseTest {
         assertEquals(LinhaClasseVet("100", "Vermífugo", "Bovinos", ""), s.classes.single())
     }
 
+    @Test fun parseDaBaseSemHistorico() {
+        val corpo = """
+        {"baton":null,"results":[
+          ${ok("""[{"type":"text","value":"100"},{"type":"text","value":"JUMP 5L"},{"type":"text","value":"HERB"},{"type":"integer","value":"7"}]""")},
+          ${ok("""[{"type":"text","value":"JUMP"},{"type":"text","value":"Diuron + Hexazinona"}]""")},
+          {"type":"error","error":{"message":"no such table: mapa_posicoes"}},
+          ${ok("""[{"type":"text","value":"100"},{"type":"text","value":"Vermífugo"},{"type":"text","value":"Bovinos"},{"type":"null"}]""")},
+          {"type":"ok","response":{"type":"close"}}
+        ]}
+        """.trimIndent()
+        val s = Turso.parseBase(corpo)
+        assertEquals(LinhaEstoque("100", "JUMP 5L", "HERB", 7.0), s.estoque.single())
+        assertEquals("Diuron + Hexazinona", s.pas.single().principioAtivo)
+        assertTrue(s.mapa.isEmpty())
+        assertEquals(1, s.avisos.size)
+        assertTrue(s.historico.isEmpty())
+        assertEquals(LinhaClasseVet("100", "Vermífugo", "Bovinos", ""), s.classes.single())
+    }
+
+    @Test fun parseDoHistorico() {
+        val corpo = """
+        {"baton":null,"results":[
+          ${ok("""[{"type":"text","value":"100"},{"type":"text","value":"2026-10-01 08:00:00"},{"type":"float","value":3.5}]""")},
+          {"type":"ok","response":{"type":"close"}}
+        ]}
+        """.trimIndent()
+        assertEquals(listOf(LinhaHistorico("100", "2026-10-01 08:00:00", 3.5)), Turso.parseHistorico(corpo))
+        // tabela ausente: gráfico sem histórico, sem derrubar a leitura
+        val semTabela = """{"results":[{"type":"error","error":{"message":"no such table: vendas_historico"}}]}"""
+        assertTrue(Turso.parseHistorico(semTabela).isEmpty())
+    }
+
     @Test fun urlDoPipeline() {
         assertEquals("https://camda-x.turso.io/v2/pipeline", Turso.urlPipeline("libsql://camda-x.turso.io"))
         assertEquals("https://camda-x.turso.io/v2/pipeline", Turso.urlPipeline("https://camda-x.turso.io/"))

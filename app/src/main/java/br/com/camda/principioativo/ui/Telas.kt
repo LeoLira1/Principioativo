@@ -213,8 +213,8 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
     val medida = if (v.vet) "unidades" else "L + kg"
     val fatias = remember(res) { Consulta.fatias(res.grupos, 10) }
     val barras = remember(res) { res.grupos.filter { it.volume > 0 }.take(8).map { br.com.camda.principioativo.core.Fatia(it.nome, it.volume, it.chave) } }
-    val series = remember(res, estado.snapshot) {
-        Consulta.historico(res.grupos, estado.snapshot?.historico ?: emptyList(), 4)
+    val series = remember(res, estado.historico) {
+        Consulta.historico(res.grupos, estado.historico, 4)
     }
     val categorias = remember(v.produtos) {
         v.produtos.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
