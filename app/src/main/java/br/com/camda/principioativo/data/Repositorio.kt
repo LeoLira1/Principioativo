@@ -59,7 +59,6 @@ class Repositorio(private val ctx: Context) {
         val agora = System.currentTimeMillis()
         arquivoBase.writeText(corpo)
         arquivoData.writeText(agora.toString())
-        arquivoLegado.delete()
         return snap to agora
     }
 
@@ -68,6 +67,8 @@ class Repositorio(private val ctx: Context) {
         val corpo = Turso.buscarHistorico(c.url, c.token)
         val hist = Turso.parseHistorico(corpo)
         arquivoHistorico.writeText(corpo)
+        // só agora o cache antigo deixa de ser a reserva do histórico
+        arquivoLegado.delete()
         return hist
     }
 
@@ -92,7 +93,9 @@ class Repositorio(private val ctx: Context) {
         // mais nova que o JSON — o cache não passa por cima da leitura fresca
         val quando = arquivoData.readText().trim().toLongOrNull() ?: 0L
         val snap = if (novo) {
-            val hist = runCatching { Turso.parseHistorico(arquivoHistorico.readText()) }.getOrDefault(emptyList())
+            val hist = runCatching { Turso.parseHistorico(arquivoHistorico.readText()) }
+                .recoverCatching { Turso.parse(arquivoLegado.readText()).historico }
+                .getOrDefault(emptyList())
             Turso.parseBase(arquivoBase.readText()).copy(historico = hist)
         } else {
             Turso.parse(arquivoLegado.readText())
