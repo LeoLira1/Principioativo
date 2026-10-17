@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import br.com.camda.principioativo.core.Consulta
 import br.com.camda.principioativo.core.Filtros
 import br.com.camda.principioativo.core.InfoCatalogo
+import br.com.camda.principioativo.core.LinhaHistorico
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
 import br.com.camda.principioativo.core.Setor
@@ -27,6 +28,8 @@ data class Estado(
     val carregando: Boolean = false,
     val erro: String? = null,
     val snapshot: Snapshot? = null,
+    /** Histórico do gráfico de linhas: chega depois da lista, numa leitura à parte. */
+    val historico: List<LinhaHistorico> = emptyList(),
     val produtos: List<Produto> = emptyList(),
     val atualizadoEm: Long = 0L,
     val filtros: Filtros = Filtros(),
@@ -59,8 +62,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun aplicar(snap: Snapshot, quando: Long) {
         val produtos = withContext(Dispatchers.Default) { Consulta.montarProdutos(snap) }
-        // cache e leitura do Turso correm juntos na abertura: o mais novo vence
-        _estado.update { if (quando < it.atualizadoEm) it else it.copy(snapshot = snap, produtos = produtos, atualizadoEm = quando) }
+        _estado.update {
+            // histórico do cache só enquanto o do Turso não chegou
+            val hist = it.historico.ifEmpty { snap.historico }
+            // cache e leitura do Turso correm juntos na abertura: o mais novo vence
+            if (quando < it.atualizadoEm) it.copy(historico = hist)
+            else it.copy(snapshot = snap, produtos = produtos, atualizadoEm = quando, historico = hist)
+        }
+    }
+
+    /** Depois da lista na tela: falha aqui só deixa o gráfico com o histórico do cache. */
+    private suspend fun atualizarHistorico(cred: Credenciais) {
+        val hist = runCatching { withContext(Dispatchers.IO) { repo.atualizarHistorico(cred) } }.getOrNull() ?: return
+        _estado.update { it.copy(historico = hist) }
     }
 
     fun atualizar() {
@@ -74,7 +88,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _estado.update { it.copy(carregando = false) }
             } catch (e: Exception) {
                 _estado.update { it.copy(carregando = false, erro = e.message ?: e.javaClass.simpleName) }
+                return@launch
             }
+            atualizarHistorico(cred)
         }
     }
 
@@ -91,6 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 aplicar(snap, quando)
                 _estado.update { it.copy(conectado = true, carregando = false) }
+                atualizarHistorico(cred)
             } catch (e: Exception) {
                 _estado.update { it.copy(carregando = false, erro = e.message ?: e.javaClass.simpleName) }
             }

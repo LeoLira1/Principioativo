@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import br.com.camda.principioativo.core.InfoCatalogo
+import br.com.camda.principioativo.core.LinhaHistorico
 import br.com.camda.principioativo.core.Snapshot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -30,8 +31,11 @@ class Repositorio(private val ctx: Context) {
         )
     }
 
-    private val arquivoCache get() = File(ctx.filesDir, "ultima_leitura.json")
+    private val arquivoBase get() = File(ctx.filesDir, "ultima_base.json")
+    private val arquivoHistorico get() = File(ctx.filesDir, "ultimo_historico.json")
     private val arquivoData get() = File(ctx.filesDir, "ultima_leitura.txt")
+    /** Cache de antes da divisão base/histórico; só lido, até a primeira leitura nova. */
+    private val arquivoLegado get() = File(ctx.filesDir, "ultima_leitura.json")
 
     fun credenciais(): Credenciais? {
         val url = prefs.getString("url", null) ?: return null
@@ -45,18 +49,27 @@ class Repositorio(private val ctx: Context) {
 
     fun apagarCredenciais() {
         prefs.edit().clear().apply()
-        arquivoCache.delete()
-        arquivoData.delete()
+        listOf(arquivoBase, arquivoHistorico, arquivoData, arquivoLegado).forEach { it.delete() }
     }
 
-    /** Lê do Turso, valida e guarda o JSON cru como cache offline. */
+    /** Lê a base do Turso (sem histórico), valida e guarda o JSON cru como cache offline. */
     fun atualizar(c: Credenciais): Pair<Snapshot, Long> {
-        val corpo = Turso.buscar(c.url, c.token)
-        val snap = Turso.parse(corpo)
+        val corpo = Turso.buscarBase(c.url, c.token)
+        val snap = Turso.parseBase(corpo)
         val agora = System.currentTimeMillis()
-        arquivoCache.writeText(corpo)
+        arquivoBase.writeText(corpo)
         arquivoData.writeText(agora.toString())
         return snap to agora
+    }
+
+    /** Lê o histórico do gráfico de linhas e guarda no cache. */
+    fun atualizarHistorico(c: Credenciais): List<LinhaHistorico> {
+        val corpo = Turso.buscarHistorico(c.url, c.token)
+        val hist = Turso.parseHistorico(corpo)
+        arquivoHistorico.writeText(corpo)
+        // só agora o cache antigo deixa de ser a reserva do histórico
+        arquivoLegado.delete()
+        return hist
     }
 
     /** Grava o P.A. de um produto no banco (precisa de token com escrita). */
@@ -71,13 +84,23 @@ class Repositorio(private val ctx: Context) {
         Turso.escrever(c.url, c.token, Turso.corpoSalvarClassificacao(codigos, classe, especie, segmento, agora))
     }
 
+    /** Última leitura salva, com o histórico junto (vazio se ainda não veio). */
     fun cache(): Pair<Snapshot, Long>? = runCatching {
-        if (!arquivoCache.exists()) return null
+        val novo = arquivoBase.exists()
+        if (!novo && !arquivoLegado.exists()) return null
         // data antes do JSON (o inverso da gravação em [atualizar]): se a leitura
         // do Turso gravar no meio, o JSON pode sair novo, mas a data nunca sai
         // mais nova que o JSON — o cache não passa por cima da leitura fresca
         val quando = arquivoData.readText().trim().toLongOrNull() ?: 0L
-        Turso.parse(arquivoCache.readText()) to quando
+        val snap = if (novo) {
+            val hist = runCatching { Turso.parseHistorico(arquivoHistorico.readText()) }
+                .recoverCatching { Turso.parse(arquivoLegado.readText()).historico }
+                .getOrDefault(emptyList())
+            Turso.parseBase(arquivoBase.readText()).copy(historico = hist)
+        } else {
+            Turso.parse(arquivoLegado.readText())
+        }
+        snap to quando
     }.getOrNull()
 
     @Serializable
