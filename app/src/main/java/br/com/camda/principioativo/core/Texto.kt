@@ -3,13 +3,18 @@ package br.com.camda.principioativo.core
 import java.text.Normalizer
 import java.util.Locale
 
+// Regex pré-compiladas: estas funções rodam milhares de vezes por leitura/busca.
+private val RE_ACENTOS = Regex("\\p{Mn}+")
+private val RE_ESPACOS = Regex("\\s+")
+private val RE_CODIGO_DECIMAL = Regex("\\d+\\.0+")
+
 /** Remove diacríticos: Ó→O, Ã→A, Ç→C. */
 fun semAcento(s: String): String =
-    Normalizer.normalize(s, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+    Normalizer.normalize(s, Normalizer.Form.NFD).replace(RE_ACENTOS, "")
 
 /** Chave de comparação: maiúsculas, sem acento, espaços colapsados. */
 fun normaliza(s: String): String =
-    semAcento(s).uppercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
+    semAcento(s).uppercase(Locale.ROOT).replace(RE_ESPACOS, " ").trim()
 
 /**
  * Chave de agrupamento de P.A.: só letras e números, sem acento.
@@ -24,7 +29,7 @@ private val RE_TAMANHO = Regex(
 )
 
 /** Nome sem tamanho/formulação: "ROUNDUP WG 5KG" → "ROUNDUP". */
-fun semTamanho(s: String): String = RE_TAMANHO.replace(s, "").replace(Regex("\\s+"), " ").trim()
+fun semTamanho(s: String): String = RE_TAMANHO.replace(s, "").replace(RE_ESPACOS, " ").trim()
 
 /** Palavras de apresentação que não identificam o produto ("… INJETAVEL FRASCO", "POUR ON"). */
 private val RE_GENERICAS = Regex("\\b(?:INJETAVEIS|INJETAVEL|FRASCOS?|POUR[\\s-]*ON|SPOT[\\s-]*ON|USO\\s+TOPICO|TOPICO|ORAL)\\b")
@@ -35,14 +40,14 @@ private val RE_GENERICAS = Regex("\\b(?:INJETAVEIS|INJETAVEL|FRASCOS?|POUR[\\s-]
  * FRASCO" ficavam 78% iguais só pelo sufixo e herdavam o P.A. um do outro.
  * Espera o texto já normalizado ([normaliza]).
  */
-fun miolo(s: String): String = RE_GENERICAS.replace(semTamanho(s), "").replace(Regex("\\s+"), " ").trim()
+fun miolo(s: String): String = RE_GENERICAS.replace(semTamanho(s), "").replace(RE_ESPACOS, " ").trim()
 
 /** Normaliza código de produto: "254185.0" → "254185", maiúsculas. */
 fun normalizaCodigo(c: String?): String {
     if (c == null) return ""
     var s = c.trim()
     if (s.isEmpty() || s.equals("nan", ignoreCase = true)) return ""
-    if (Regex("\\d+\\.0+").matches(s)) s = s.substringBefore('.')
+    if (RE_CODIGO_DECIMAL.matches(s)) s = s.substringBefore('.')
     return s.uppercase(Locale.ROOT)
 }
 
