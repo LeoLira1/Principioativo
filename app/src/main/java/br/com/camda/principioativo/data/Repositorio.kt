@@ -73,7 +73,11 @@ class Repositorio(private val ctx: Context) {
 
     fun cache(): Pair<Snapshot, Long>? = runCatching {
         if (!arquivoCache.exists()) return null
-        Turso.parse(arquivoCache.readText()) to (arquivoData.readText().trim().toLongOrNull() ?: 0L)
+        // data antes do JSON (o inverso da gravação em [atualizar]): se a leitura
+        // do Turso gravar no meio, o JSON pode sair novo, mas a data nunca sai
+        // mais nova que o JSON — o cache não passa por cima da leitura fresca
+        val quando = arquivoData.readText().trim().toLongOrNull() ?: 0L
+        Turso.parse(arquivoCache.readText()) to quando
     }.getOrNull()
 
     @Serializable

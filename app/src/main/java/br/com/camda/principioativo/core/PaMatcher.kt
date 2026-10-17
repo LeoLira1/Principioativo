@@ -57,14 +57,17 @@ class PaMatcher(mapa: Map<String, String>) {
     }
 
     companion object {
+        private val RE_ESPACOS = Regex("\\s+")
+        private val NULOS = setOf("NAN", "NONE", "-")
+
         /**
          * Quebra o texto do P.A. em ingredientes: "Picloram + 2,4-D" →
          * ["Picloram", "2,4-D"]. Só o "+" separa (vírgula faz parte de nomes
          * como 2,4-D).
          */
         fun separar(pa: String): List<String> =
-            pa.split('+').map { it.trim().replace(Regex("\\s+"), " ") }
-                .filter { it.isNotEmpty() && it.uppercase(Locale.ROOT) !in setOf("NAN", "NONE", "-") }
+            pa.split('+').map { it.trim().replace(RE_ESPACOS, " ") }
+                .filter { it.isNotEmpty() && it.uppercase(Locale.ROOT) !in NULOS }
                 .distinctBy { normaliza(it) }
 
         /** Inverso de [separar]: ["Diuron", "Hexazinona"] → "Diuron + Hexazinona". */
