@@ -77,7 +77,12 @@ data class Produto(
     val segmento: String = "",
 ) {
     val temEstoque: Boolean get() = quantidade.qtd > 0
+
+    /** Brinco conta 1 un. por peça: sai dos gráficos da loja para não engolir a rosca. */
+    val ehBrinco: Boolean get() = RE_BRINCO.containsMatchIn(nome)
 }
+
+private val RE_BRINCO = Regex("\\bBRINCOS?\\b", RegexOption.IGNORE_CASE)
 
 /** Um grupo de P.A. com seus produtos. */
 data class GrupoPa(
