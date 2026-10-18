@@ -1,6 +1,7 @@
 package br.com.camda.principioativo.core
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -93,5 +94,31 @@ class SetorTest {
         val s = Consulta.historico(g, hist, hoje = "2026-10-03").single()
         // 1 unidade = 1 (não 0,5 L)
         assertEquals(listOf(30.0, 26.0, 24.0), s.pontos.map { it.second })
+    }
+
+    @Test fun brincoSaiDosGraficosDaLoja() {
+        val vet = Consulta.montarProdutos(
+            Snapshot(
+                estoque = listOf(
+                    LinhaEstoque("172286", "BRINCO MOSQUICIDA OURO FINO", "ANTIBIOTICOS/ANTI-INFLAMATORIO", 1100.0),
+                    LinhaEstoque("57410", "BARRAGE 1 LT", "MOSQUICIDA/CARRAPATICIDA/BERNI", 6.0),
+                    LinhaEstoque("30", "TERRAMICINA LA 50ML", "ANTIBIOTICOS/ANTI-INFLAMATORIO", 40.0),
+                ),
+                pas = emptyList(), mapa = emptyList(), historico = emptyList(),
+                classes = listOf(
+                    LinhaClasseVet("172286", "Carrapaticida/Mosquicida", "Bovinos", ""),
+                    LinhaClasseVet("57410", "Carrapaticida/Mosquicida", "Bovinos", ""),
+                    LinhaClasseVet("30", "Antibiótico", "Bovinos", ""),
+                ),
+            ),
+        )
+        assertTrue(vet.single { it.codigo == "172286" }.ehBrinco)
+        assertFalse(vet.single { it.codigo == "57410" }.ehBrinco)
+        val r = Consulta.agruparPorClasse(vet)
+        // a lista continua com o brinco…
+        assertEquals(1106.0, r.grupos.first().unidades, 0.0)
+        // …mas o gráfico mede sem ele e reordena
+        val g = Consulta.paraGrafico(r.grupos)
+        assertEquals(listOf("Antibiótico" to 40.0, "Carrapaticida/Mosquicida" to 6.0), g.map { it.nome to it.volume })
     }
 }

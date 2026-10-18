@@ -211,10 +211,17 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
     val res = v.principal(estado.porClasse)
     val oQue = if (porClasse) "classe" else "P.A."
     val medida = if (v.vet) "unidades" else "L + kg"
-    val fatias = remember(res) { Consulta.fatias(res.grupos, 10) }
-    val barras = remember(res) { res.grupos.filter { it.volume > 0 }.take(8).map { br.com.camda.principioativo.core.Fatia(it.nome, it.volume, it.chave) } }
-    val series = remember(res, estado.historico) {
-        Consulta.historico(res.grupos, estado.historico, 4)
+    val grafico = remember(res) { Consulta.paraGrafico(res.grupos) }
+    // brincos tirados dos gráficos (só loja): avisados no rodapé da rosca
+    val brincos = remember(res) {
+        if (!v.vet) 0.0
+        else (res.grupos.flatMap { it.produtos } + res.semPa).distinctBy { it.codigo + "|" + it.nome }
+            .filter { it.ehBrinco }.sumOf { it.quantidade.qtd }
+    }
+    val fatias = remember(grafico) { Consulta.fatias(grafico, 10) }
+    val barras = remember(grafico) { grafico.filter { it.volume > 0 }.take(8).map { br.com.camda.principioativo.core.Fatia(it.nome, it.volume, it.chave) } }
+    val series = remember(grafico, estado.historico) {
+        Consulta.historico(grafico, estado.historico, 4)
     }
     val categorias = remember(v.produtos) {
         v.produtos.map { it.categoria }.filter { it.isNotBlank() }.distinct().sorted()
@@ -304,12 +311,12 @@ fun TelaInicial(v: Vista, estado: Estado, vm: MainViewModel) {
                 item {
                     if (largo) {
                         Row(mod, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            CardRosca(fatias, oQue, medida, vm, Modifier.weight(1.15f))
+                            CardRosca(fatias, oQue, medida, brincos, vm, Modifier.weight(1.15f))
                             CardBarras(barras, oQue, medida, vm, Modifier.weight(1f))
                         }
                     } else {
                         Column(mod, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            CardRosca(fatias, oQue, medida, vm, Modifier)
+                            CardRosca(fatias, oQue, medida, brincos, vm, Modifier)
                             CardBarras(barras, oQue, medida, vm, Modifier)
                         }
                     }
@@ -563,13 +570,17 @@ private fun Kpis(v: Vista, modifier: Modifier, largo: Boolean) {
 
 @Composable
 private fun CardRosca(
-    fatias: List<br.com.camda.principioativo.core.Fatia>, oQue: String, medida: String, vm: MainViewModel, modifier: Modifier,
+    fatias: List<br.com.camda.principioativo.core.Fatia>, oQue: String, medida: String, brincos: Double,
+    vm: MainViewModel, modifier: Modifier,
 ) {
     Card(modifier) {
         Rotulo("Distribuição por $oQue")
         Text("Em $medida · toque numa fatia para abrir", color = Cores.label, fontSize = 11.sp)
         Espaco(4)
         Rosca(fatias, onToque = vm::abrir)
+        if (brincos > 0) {
+            Text("Brincos fora dos gráficos: ${fmtInt(brincos)} un.", color = Cores.label, fontSize = 11.sp)
+        }
     }
 }
 

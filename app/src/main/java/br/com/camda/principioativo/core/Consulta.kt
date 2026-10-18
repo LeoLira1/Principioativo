@@ -199,13 +199,23 @@ object Consulta {
         val lista = grupos.map { (chave, v) ->
             val nome = grafias.getValue(chave).maxByOrNull { it.value }!!.key
             GrupoPa(chave, nome, v.values.sortedWith(ordemProdutos), porUnidades)
-        }.sortedWith(
-            compareByDescending<GrupoPa> { it.volume }
-                .thenByDescending { it.unidades }
-                .thenBy { it.nome },
-        )
+        }.sortedWith(ordemGrupos)
         return Resultado(lista, semPa.sortedWith(ordemProdutos), produtos.size)
     }
+
+    private val ordemGrupos = compareByDescending<GrupoPa> { it.volume }
+        .thenByDescending { it.unidades }
+        .thenBy { it.nome }
+
+    /**
+     * Grupos dos gráficos da loja: sem brincos (1.100 brincos viram 1.100
+     * "unidades" e distorcem rosca, barras e evolução). Barracão passa direto.
+     */
+    fun paraGrafico(grupos: List<GrupoPa>): List<GrupoPa> =
+        if (grupos.none { it.porUnidades }) grupos
+        else grupos.map { g -> g.copy(produtos = g.produtos.filterNot { it.ehBrinco }) }
+            .filter { it.produtos.isNotEmpty() }
+            .sortedWith(ordemGrupos)
 
     private val ordemProdutos = compareByDescending<Produto> { it.quantidade.volume ?: 0.0 }
         .thenByDescending { it.quantidade.qtd }
