@@ -9,7 +9,7 @@ data class LinhaEstoque(
 )
 
 /** Linha de `principios_ativos`. */
-data class LinhaPa(val produto: String, val principioAtivo: String)
+data class LinhaPa(val produto: String, val principioAtivo: String, val categoria: String = "")
 
 /** Posição do Mapa de Estoque (`mapa_posicoes` + `mapa_produtos`). */
 data class LinhaMapa(
@@ -65,6 +65,7 @@ data class Local(val posKey: String, val quantidade: Double?, val unidade: Strin
 data class Produto(
     val codigo: String,
     val nome: String,
+    /** Categoria mostrada: a gravada em `principios_ativos`; sem ela, a do estoque. */
     val categoria: String,
     val quantidade: Quantidade,
     /** Ingredientes (vazio = sem P.A. cadastrado). */
@@ -75,6 +76,10 @@ data class Produto(
     val classe: String = "",
     val especie: String = "",
     val segmento: String = "",
+    /** Categoria de `estoque_mestre` (a do BI), mesmo quando [categoria] vem do cadastro de P.A. */
+    val categoriaEstoque: String = categoria,
+    /** Tem linha em `principios_ativos` (pelo nome) ou P.A. achado pelo casamento. */
+    val temCadastroPa: Boolean = pas.isNotEmpty(),
 ) {
     val temEstoque: Boolean get() = quantidade.qtd > 0
 

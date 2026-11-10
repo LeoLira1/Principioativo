@@ -50,6 +50,7 @@ import br.com.camda.principioativo.core.Difflib
 import br.com.camda.principioativo.core.InfoCatalogo
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
+import br.com.camda.principioativo.core.Consulta
 import br.com.camda.principioativo.core.Setor
 import br.com.camda.principioativo.core.normaliza
 import br.com.camda.principioativo.core.normalizaCodigo
@@ -149,7 +150,12 @@ fun DialogoBuscaProduto(
                                 Text(
                                     (if (p.pas.isEmpty()) "⚠️ sem P.A." else "✅ " + p.pas.joinToString(" + ")) +
                                         " · " + p.categoria.ifBlank { "sem categoria" } +
-                                        " · " + (if (p.setor == Setor.OUTRO) "fora das listas" else p.setor.rotulo),
+                                        " · " + when {
+                                            p.setor != Setor.OUTRO -> p.setor.rotulo
+                                            Consulta.vetForaDaLoja(p) -> Setor.LOJA_VET.rotulo
+                                            p.pas.isNotEmpty() -> "só na busca"
+                                            else -> "fora das listas"
+                                        },
                                     color = if (p.pas.isEmpty()) Cores.warn else Cores.ok, fontSize = 12.sp,
                                 )
                             }

@@ -31,7 +31,7 @@ import java.net.URL
 object Turso {
 
     private const val SQL_ESTOQUE = "SELECT codigo, produto, categoria, qtd_sistema FROM estoque_mestre"
-    private const val SQL_PAS = "SELECT produto, principio_ativo FROM principios_ativos"
+    private const val SQL_PAS = "SELECT produto, principio_ativo, COALESCE(categoria, '') FROM principios_ativos"
     private val SQL_MAPA = """
         SELECT p.pos_key, p.quantidade, p.unidade, mp.nome,
                COALESCE(mp.codigo, '') || '|' ||
@@ -228,7 +228,7 @@ object Turso {
     private fun estoque(l: List<List<JsonElement>>) =
         l.map { LinhaEstoque(texto(it[0]), texto(it[1]), texto(it[2]), numero(it[3]) ?: 0.0) }
 
-    private fun pas(l: List<List<JsonElement>>) = l.map { LinhaPa(texto(it[0]), texto(it[1])) }
+    private fun pas(l: List<List<JsonElement>>) = l.map { LinhaPa(texto(it[0]), texto(it[1]), it.getOrNull(2)?.let(::texto).orEmpty()) }
 
     private fun mapa(l: List<List<JsonElement>>) = l.map {
         LinhaMapa(

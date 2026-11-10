@@ -67,6 +67,42 @@ object Consulta {
             else -> Setor.OUTRO
         }
     }
+
+    /**
+     * Categorias do estoque que, mesmo com o produto caindo em "Outros", são
+     * de medicamento veterinário. "Outros" também tem ferramenta, graxa e
+     * semente, por isso não entra inteiro na loja.
+     */
+    private val CATEGORIAS_VET_OUTROS = listOf(
+        "VERMIFUGOS", "ANTIBIOTICOS/ANTI-INFLAMATORIO", "MATA BICHEIRA",
+        "MOSQUICIDA/CARRAPATICIDA/BERNI", "TONICO MINERAL/VITAMINAS", "ANTITOXICOS",
+    ).map(::chavePa).toSet()
+    private val CHAVE_OUTROS = chavePa("OUTROS")
+
+    /**
+     * Produto do setor "Outros" que é veterinário: categoria do estoque é de
+     * medicamento ou, se a categoria é a genérica OUTROS, tem P.A. cadastrado.
+     */
+    fun vetForaDaLoja(p: Produto): Boolean {
+        if (p.setor != Setor.OUTRO) return false
+        val cats = listOf(p.categoriaEstoque, p.categoria).map(::chavePa)
+        if (cats.any { it in CATEGORIAS_VET_OUTROS }) return true
+        return chavePa(p.categoriaEstoque) == CHAVE_OUTROS && p.temCadastroPa
+    }
+
+    /**
+     * Produtos de uma aba. A Loja Vet leva junto os veterinários que caíram em
+     * "Outros" ([vetForaDaLoja]). Com busca, entram também os de "Outros" com
+     * P.A. cadastrado (nome, código ou P.A. acham o produto em qualquer aba).
+     */
+    fun produtosDaAba(produtos: List<Produto>, setor: Setor, busca: String = ""): List<Produto> {
+        val vet = setor == Setor.LOJA_VET
+        val base = produtos.filter { it.setor == setor || (vet && vetForaDaLoja(it)) }
+        if (busca.isBlank()) return base
+        val extras = produtos.filter { it.setor == Setor.OUTRO && it.pas.isNotEmpty() && !(vet && vetForaDaLoja(it)) }
+        return base + extras
+    }
+
     private val RE_COD_PREFIXO = Regex("^\\s*[A-Z0-9\\-]{3,20}\\s*[-–]\\s*(.+)$", RegexOption.IGNORE_CASE)
 
     /**
@@ -90,10 +126,18 @@ object Consulta {
 
         // Banco tem prioridade; a última linha de um mesmo produto vence (dict do Python).
         val mapa = LinkedHashMap<String, String>()
+        // categoria gravada no cadastro de P.A. (só pelo nome do produto, nunca por semelhança)
+        val catPorNome = HashMap<String, String>()
+        val cadastrados = HashSet<String>()
         for (p in snap.pas) {
             val k = p.produto.trim().uppercase(Locale.ROOT)
+            if (k.isEmpty()) continue
+            val n = normaliza(k)
+            cadastrados += n
             val v = p.principioAtivo.trim()
-            if (k.isNotEmpty() && v.isNotEmpty()) mapa[k] = v
+            if (v.isNotEmpty()) mapa[k] = v
+            val c = p.categoria.trim()
+            if (c.isNotEmpty() && !c.equals("nan", ignoreCase = true)) catPorNome[n] = c
         }
         val matcher = PaMatcher(mapa)
 
@@ -118,17 +162,27 @@ object Consulta {
                 ?: porNome[l.produto.trim().lowercase(Locale.ROOT)]
                 ?: emptyList()
             val cv = classes[normalizaCodigo(l.codigo)]
+            val nomeN = normaliza(l.produto)
+            val catEstoque = l.categoria.trim()
+            val categoria = catPorNome[nomeN] ?: catEstoque
+            val temClasse = cv != null && cv.classe.isNotBlank()
+            // setor pela categoria mostrada; se ela não diz nada, vale a do estoque
+            val setor = setorDe(categoria, temClasse, l.produto)
+                .takeIf { it != Setor.OUTRO || categoria == catEstoque }
+                ?: setorDe(catEstoque, temClasse, l.produto)
             Produto(
                 codigo = l.codigo,
                 nome = l.produto.trim(),
-                categoria = l.categoria.trim(),
+                categoria = categoria,
                 quantidade = Quantidade(maxOf(l.qtdSistema, 0.0), Embalagem.deNome(l.produto)),
                 pas = pas,
                 locais = locais.sortedBy { it.posKey },
-                setor = setorDe(l.categoria, cv != null && cv.classe.isNotBlank(), l.produto),
+                setor = setor,
                 classe = cv?.classe?.trim().orEmpty(),
                 especie = cv?.especie?.trim().orEmpty(),
                 segmento = cv?.segmento?.trim().orEmpty(),
+                categoriaEstoque = catEstoque,
+                temCadastroPa = pas.isNotEmpty() || nomeN in cadastrados,
             )
         }
     }

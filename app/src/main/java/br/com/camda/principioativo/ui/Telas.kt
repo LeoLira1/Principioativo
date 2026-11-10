@@ -98,8 +98,13 @@ fun App(vm: MainViewModel, estado: Estado) {
             TelaConexao(estado, vm::conectar)
             return@Box
         }
-        val doSetor = remember(estado.produtos, estado.setor) { estado.produtos.filter { it.setor == estado.setor } }
-        val filtrados = remember(doSetor, estado.filtros) { Consulta.aplicaFiltros(doSetor, estado.filtros) }
+        val doSetor = remember(estado.produtos, estado.setor) { Consulta.produtosDaAba(estado.produtos, estado.setor) }
+        // com busca, entram também os de "Outros" que têm P.A. cadastrado
+        val daBusca = remember(estado.produtos, estado.setor, doSetor, estado.filtros.busca.isBlank()) {
+            if (estado.filtros.busca.isBlank()) doSetor
+            else Consulta.produtosDaAba(estado.produtos, estado.setor, estado.filtros.busca)
+        }
+        val filtrados = remember(daBusca, estado.filtros) { Consulta.aplicaFiltros(daBusca, estado.filtros) }
         val vet = estado.setor == Setor.LOJA_VET
         val resPa = remember(filtrados, vet) { Consulta.agrupar(filtrados, porUnidades = vet) { it.pas } }
         val resClasse = remember(filtrados, vet) { if (vet) Consulta.agruparPorClasse(filtrados) else null }
