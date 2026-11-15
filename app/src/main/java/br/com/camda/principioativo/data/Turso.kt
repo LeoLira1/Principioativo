@@ -5,6 +5,7 @@ import br.com.camda.principioativo.core.LinhaEstoque
 import br.com.camda.principioativo.core.LinhaHistorico
 import br.com.camda.principioativo.core.LinhaMapa
 import br.com.camda.principioativo.core.LinhaPa
+import br.com.camda.principioativo.core.LinhaSetorOverride
 import br.com.camda.principioativo.core.Snapshot
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -43,6 +44,8 @@ object Turso {
          WHERE p.produto_id IS NOT NULL
         """.trimIndent()
     private const val SQL_CLASSES = "SELECT codigo, classe, especie, segmento FROM classificacao_vet"
+    /** Exceção de setor gravada pelo MCP (tirar_da_veterinaria); a tabela só existe depois da 1ª marcação. */
+    private const val SQL_SETOR_OVERRIDE = "SELECT codigo, setor FROM setor_override"
 
     /**
      * Só o último upload de cada código em cada dia — o único que o gráfico
@@ -59,7 +62,7 @@ object Turso {
         """.trimIndent()
 
     /** Ordem das consultas = ordem dos resultados no pipeline. */
-    val CONSULTAS_BASE = listOf(SQL_ESTOQUE, SQL_PAS, SQL_MAPA, SQL_CLASSES)
+    val CONSULTAS_BASE = listOf(SQL_ESTOQUE, SQL_PAS, SQL_MAPA, SQL_CLASSES, SQL_SETOR_OVERRIDE)
 
     /** libsql://banco.turso.io → https://banco.turso.io/v2/pipeline */
     fun urlPipeline(url: String): String {
@@ -212,11 +215,13 @@ object Turso {
     /** Linhas do resultado [i]; erro na consulta obrigatória vira exceção, nas outras aviso. */
     private fun linhas(
         resultados: JsonArray, i: Int, nome: String, avisos: MutableList<String>, obrigatoria: Boolean = false,
+        semAvisoSeAusente: Boolean = false,
     ): List<List<JsonElement>> {
         val r = resultados.getOrNull(i)?.jsonObject ?: return emptyList()
         if (r["type"]?.jsonPrimitive?.contentOrNull != "ok") {
             val msg = r["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull ?: "erro"
             if (obrigatoria) throw IOException("Não consegui ler $nome: $msg")
+            if (semAvisoSeAusente && msg.contains("no such table", ignoreCase = true)) return emptyList()
             avisos += "Sem $nome: $msg"
             return emptyList()
         }
@@ -246,6 +251,9 @@ object Turso {
     private fun classes(l: List<List<JsonElement>>) =
         l.map { LinhaClasseVet(texto(it[0]), texto(it[1]), texto(it[2]), texto(it[3])) }
 
+    private fun overrides(l: List<List<JsonElement>>) =
+        l.filter { it.size >= 2 }.map { LinhaSetorOverride(texto(it[0]), texto(it[1])) }
+
     /** Resposta de [CONSULTAS_BASE] → [Snapshot] sem histórico. */
     fun parseBase(corpo: String): Snapshot {
         val r = resultados(corpo)
@@ -257,6 +265,7 @@ object Turso {
             historico = emptyList(),
             avisos = avisos,
             classes = classes(linhas(r, 3, "classificação vet", avisos)),
+            overrides = overrides(linhas(r, 4, "exceções de setor", avisos, semAvisoSeAusente = true)),
         )
     }
 

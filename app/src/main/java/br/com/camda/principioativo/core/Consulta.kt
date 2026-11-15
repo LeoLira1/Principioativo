@@ -84,7 +84,7 @@ object Consulta {
      * medicamento ou, se a categoria é a genérica OUTROS, tem P.A. cadastrado.
      */
     fun vetForaDaLoja(p: Produto): Boolean {
-        if (p.setor != Setor.OUTRO) return false
+        if (p.setor != Setor.OUTRO || p.foraDaVet) return false
         val cats = listOf(p.categoriaEstoque, p.categoria).map(::chavePa)
         if (cats.any { it in CATEGORIAS_VET_OUTROS }) return true
         return chavePa(p.categoriaEstoque) == CHAVE_OUTROS && p.temCadastroPa
@@ -99,7 +99,9 @@ object Consulta {
         val vet = setor == Setor.LOJA_VET
         val base = produtos.filter { it.setor == setor || (vet && vetForaDaLoja(it)) }
         if (busca.isBlank()) return base
-        val extras = produtos.filter { it.setor == Setor.OUTRO && it.pas.isNotEmpty() && !(vet && vetForaDaLoja(it)) }
+        val extras = produtos.filter {
+            it.setor == Setor.OUTRO && it.pas.isNotEmpty() && !(vet && (vetForaDaLoja(it) || it.foraDaVet))
+        }
         return base + extras
     }
 
@@ -152,6 +154,8 @@ object Consulta {
         }
 
         val classes = snap.classes.associateBy { normalizaCodigo(it.codigo) }
+        // tirados da veterinária pelo MCP (tirar_da_veterinaria), sem mexer na categoria do Protheus
+        val foraVet = snap.overrides.filter { it.setor.trim() == SETOR_FORA_VET }.map { normalizaCodigo(it.codigo) }.toSet()
 
         val cachePa = HashMap<String, List<String>>()
         return limpo.map { l ->
@@ -167,9 +171,11 @@ object Consulta {
             val categoria = catPorNome[nomeN] ?: catEstoque
             val temClasse = cv != null && cv.classe.isNotBlank()
             // setor pela categoria mostrada; se ela não diz nada, vale a do estoque
-            val setor = setorDe(categoria, temClasse, l.produto)
+            val foraDaVet = normalizaCodigo(l.codigo) in foraVet
+            val setorBase = setorDe(categoria, temClasse, l.produto)
                 .takeIf { it != Setor.OUTRO || categoria == catEstoque }
                 ?: setorDe(catEstoque, temClasse, l.produto)
+            val setor = if (foraDaVet && setorBase == Setor.LOJA_VET) Setor.OUTRO else setorBase
             Produto(
                 codigo = l.codigo,
                 nome = l.produto.trim(),
@@ -183,6 +189,7 @@ object Consulta {
                 segmento = cv?.segmento?.trim().orEmpty(),
                 categoriaEstoque = catEstoque,
                 temCadastroPa = pas.isNotEmpty() || nomeN in cadastrados,
+                foraDaVet = foraDaVet,
             )
         }
     }
