@@ -52,6 +52,7 @@ import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
 import br.com.camda.principioativo.core.Consulta
 import br.com.camda.principioativo.core.Setor
+import br.com.camda.principioativo.core.ehClasseOficial
 import br.com.camda.principioativo.core.normaliza
 import br.com.camda.principioativo.core.normalizaCodigo
 
@@ -169,23 +170,9 @@ fun DialogoBuscaProduto(
     )
 }
 
-/**
- * Atalhos da classificação veterinária (mesma lista do dashboard; texto livre continua valendo).
- * É também a lista oficial que o classificar_produtos do MCP valida (CLASSES_VET em
- * camda-mcp/src/cadastro_vet.ts) — mude as duas juntas.
- */
-val CLASSES_VET = listOf(
-    "Vermífugo", "Antibiótico", "Anti-inflamatório", "Antiparasitário externo",
-    "Carrapaticida/Mosquicida", "Vacina", "Soro", "Hormônio/Reprodução",
-    "Vitamina/Suplemento", "Anestésico/Analgésico", "Antitóxico", "Antidiarreico",
-    "Homeopático", "Pomada/Unguento", "Identificação animal", "Material", "Outros",
-)
 val ESPECIES_VET = listOf("Bovinos", "Equinos", "Suínos", "Aves", "Ovinos/Caprinos", "Cães e Gatos", "Multiespécie", "Material")
 val SEGMENTOS_VET = listOf("Corte", "Leite", "Corte e leite")
 
-/** Classes já usadas no estoque (com a grafia delas) + as sugeridas, sem repetir. */
-fun classesConhecidas(produtos: List<Produto>): List<String> =
-    (produtos.map { it.classe.trim() }.filter { it.isNotEmpty() } + CLASSES_VET).distinctBy { normaliza(it) }
 
 /**
  * Classifica um ou vários produtos da loja: classe (obrigatória), espécie e
@@ -201,11 +188,14 @@ fun DialogoClassificarVet(
     onFechar: () -> Unit,
 ) {
     val unico = produtos.singleOrNull()
-    var classe by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.classe.orEmpty()) }
-    var outra by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf("") }
+    // só a lista oficial: classe gravada fora dela ("Antidiarrerico") começa sem pílula marcada
+    var classe by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) {
+        mutableStateOf(unico?.classe?.takeIf(::ehClasseOficial).orEmpty())
+    }
     var especie by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.especie.orEmpty()) }
     var segmento by rememberSaveable(produtos.size, produtos.firstOrNull()?.codigo) { mutableStateOf(unico?.segmento.orEmpty()) }
-    val classeFinal = outra.trim().ifEmpty { classe.trim() }
+    val classeFinal = classe.trim().takeIf(::ehClasseOficial).orEmpty()
+    val atualForaDaLista = unico?.classe?.takeIf { it.isNotBlank() && !ehClasseOficial(it) }
 
     AlertDialog(
         onDismissRequest = { if (!salvando) onFechar() },
@@ -223,18 +213,16 @@ fun DialogoClassificarVet(
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Rotulo("Classe")
                 Spacer(Modifier.padding(4.dp))
-                LinhaEtiquetas {
-                    classes.forEach { c ->
-                        Pilula(c, outra.isBlank() && normaliza(c) == normaliza(classe)) { classe = c; outra = "" }
-                    }
+                if (atualForaDaLista != null) {
+                    Text(
+                        "Classe gravada \"$atualForaDaLista\" está fora da lista oficial. Escolha uma da lista para corrigir.",
+                        color = Cores.warn, fontSize = 12.sp, lineHeight = 16.sp,
+                    )
+                    Spacer(Modifier.padding(4.dp))
                 }
-                Spacer(Modifier.padding(4.dp))
-                OutlinedTextField(
-                    value = outra, onValueChange = { outra = it }, singleLine = true,
-                    label = { Text("Outra classe (digitar)") }, modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    shape = RaioLinha, colors = camposCores(), enabled = !salvando,
-                )
+                LinhaEtiquetas {
+                    classes.forEach { c -> Pilula(c, c == classe) { classe = c } }
+                }
                 Spacer(Modifier.padding(6.dp))
                 Rotulo("Espécie (opcional)")
                 Spacer(Modifier.padding(4.dp))
@@ -290,7 +278,8 @@ fun DialogoCadastroPa(
 ) {
     val escolhidos = remember(produto) { mutableStateListOf<String>().apply { addAll(produto.pas) } }
     var digitado by rememberSaveable(produto.codigo) { mutableStateOf("") }
-    var categoria by rememberSaveable(produto.codigo) { mutableStateOf(produto.categoria) }
+    // editar mantém a categoria já gravada no cadastro de P.A.; sem ela, a do Protheus (como antes)
+    var categoria by rememberSaveable(produto.codigo) { mutableStateOf(produto.categoriaCadastro.ifBlank { produto.categoria }) }
     val sugestoes = sugerirPa(digitado, conhecidos, escolhidos)
 
     fun adicionar(pa: String) {

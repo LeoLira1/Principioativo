@@ -85,7 +85,7 @@ object Consulta {
      */
     fun vetForaDaLoja(p: Produto): Boolean {
         if (p.setor != Setor.OUTRO || p.foraDaVet) return false
-        val cats = listOf(p.categoriaEstoque, p.categoria).map(::chavePa)
+        val cats = listOf(p.categoria, p.categoriaCadastro).map(::chavePa)
         if (cats.any { it in CATEGORIAS_VET_OUTROS }) return true
         return chavePa(p.categoriaEstoque) == CHAVE_OUTROS && p.temCadastroPa
     }
@@ -98,10 +98,11 @@ object Consulta {
     fun produtosDaAba(produtos: List<Produto>, setor: Setor, busca: String = ""): List<Produto> {
         val vet = setor == Setor.LOJA_VET
         val base = produtos.filter { it.setor == setor || (vet && vetForaDaLoja(it)) }
-        if (busca.isBlank()) return base
-        val extras = produtos.filter {
-            it.setor == Setor.OUTRO && it.pas.isNotEmpty() && !(vet && (vetForaDaLoja(it) || it.foraDaVet))
-        }
+        // Loja Vet: só a regra da loja, com ou sem busca (senão regulador de crescimento com P.A.
+        // caía em "Sem classificação" — mesma regra do ver_sem_classificacao do MCP)
+        if (busca.isBlank() || vet) return base
+        // barracão: a busca acha qualquer produto de "Outros" com P.A. (inclusive os veterinários)
+        val extras = produtos.filter { it.setor == Setor.OUTRO && it.pas.isNotEmpty() }
         return base + extras
     }
 
@@ -179,7 +180,7 @@ object Consulta {
             Produto(
                 codigo = l.codigo,
                 nome = l.produto.trim(),
-                categoria = categoria,
+                categoria = catEstoque,
                 quantidade = Quantidade(maxOf(l.qtdSistema, 0.0), Embalagem.deNome(l.produto)),
                 pas = pas,
                 locais = locais.sortedBy { it.posKey },
@@ -187,7 +188,7 @@ object Consulta {
                 classe = cv?.classe?.trim().orEmpty(),
                 especie = cv?.especie?.trim().orEmpty(),
                 segmento = cv?.segmento?.trim().orEmpty(),
-                categoriaEstoque = catEstoque,
+                categoriaCadastro = catPorNome[nomeN].orEmpty(),
                 temCadastroPa = pas.isNotEmpty() || nomeN in cadastrados,
                 foraDaVet = foraDaVet,
             )

@@ -67,11 +67,12 @@ class OutrosVetTest {
         assertEquals(listOf("500"), loja.semPa.map { it.codigo }) // mata bicheira entra; graxa, ferramenta e semente não
     }
 
-    @Test fun categoriaGravadaNoCadastroVence() {
-        assertEquals("VERMIFUGOS", p("140449").categoria)
-        assertEquals("OUTROS", p("140449").categoriaEstoque)
-        assertEquals(Setor.LOJA_VET, p("140449").setor) // a categoria gravada já põe na loja
-        assertEquals("OUTROS", p("106160").categoria) // sem categoria gravada: a do estoque
+    @Test fun cardMostraCategoriaDoProtheusECadastroFicaAParte() {
+        assertEquals("OUTROS", p("140449").categoria) // a do Protheus, igual ao MCP
+        assertEquals("VERMIFUGOS", p("140449").categoriaCadastro)
+        assertEquals(Setor.LOJA_VET, p("140449").setor) // a categoria gravada continua pondo na loja
+        assertEquals("OUTROS", p("106160").categoria)
+        assertEquals("", p("106160").categoriaCadastro)
         assertFalse(Consulta.vetForaDaLoja(p("501")))
     }
 }

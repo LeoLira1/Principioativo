@@ -6,6 +6,7 @@ import br.com.camda.principioativo.core.LinhaHistorico
 import br.com.camda.principioativo.core.LinhaMapa
 import br.com.camda.principioativo.core.LinhaPa
 import br.com.camda.principioativo.core.LinhaSetorOverride
+import br.com.camda.principioativo.core.ehClasseOficial
 import br.com.camda.principioativo.core.Snapshot
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -136,6 +137,8 @@ object Turso {
                 })
             })
         }
+        // nenhum caminho grava classe fora da lista oficial
+        require(ehClasseOficial(classe)) { "Classe \"${classe.trim()}\" fora da lista oficial. Escolha uma da lista." }
         val chaves = codigos.map { it.trim().uppercase(java.util.Locale.ROOT) }.filter { it.isNotEmpty() }.distinct()
         return buildJsonObject {
             put("requests", buildJsonArray {
