@@ -50,7 +50,15 @@ data class Snapshot(
     val historico: List<LinhaHistorico>,
     val avisos: List<String> = emptyList(),
     val classes: List<LinhaClasseVet> = emptyList(),
+    /** Exceções de `setor_override` (código → setor); "fora_vet" tira da Loja Vet. */
+    val overrides: List<LinhaSetorOverride> = emptyList(),
 )
+
+/** Linha de `setor_override`: exceção de setor por código, gravada pelo MCP (tirar_da_veterinaria). */
+data class LinhaSetorOverride(val codigo: String, val setor: String)
+
+/** Valor de `setor_override.setor` que tira o produto da Loja Vet. */
+const val SETOR_FORA_VET = "fora_vet"
 
 /** Endereço legível: "R1-A-C3-N2" → "R1 A · C3 N2". */
 data class Local(val posKey: String, val quantidade: Double?, val unidade: String) {
@@ -80,6 +88,8 @@ data class Produto(
     val categoriaEstoque: String = categoria,
     /** Tem linha em `principios_ativos` (pelo nome) ou P.A. achado pelo casamento. */
     val temCadastroPa: Boolean = pas.isNotEmpty(),
+    /** Marcado em `setor_override` como "fora_vet": nunca entra na Loja Vet. */
+    val foraDaVet: Boolean = false,
 ) {
     val temEstoque: Boolean get() = quantidade.qtd > 0
 

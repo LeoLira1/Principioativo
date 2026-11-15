@@ -36,6 +36,11 @@ Dois setores, trocados no topo da tela:
 
 Adubos, adjuvantes, sementes, rações etc. não entram em nenhum dos dois.
 
+**Exceção de setor (`setor_override`)**: produto marcado com `setor = 'fora_vet'` nunca entra na
+Loja Vet (nem na busca da loja), mesmo com categoria veterinária, classe ou "OUTROS com P.A.".
+Quem grava é o MCP CAMDA Estoque (`tirar_da_veterinaria` / `devolver_a_veterinaria`); o app só lê,
+sem mexer no `estoque_mestre` nem na categoria do Protheus. Tabela ausente = nenhuma exceção.
+
 
 - **Vincular P.A. (botão ➕ no topo)**: busca inteligente em TODOS os produtos do estoque (qualquer setor/categoria), sem acento, fora de ordem e com erro de digitação; toque no produto e cadastre o P.A.
 - **Classificar a Loja Vet**: na loja, abra um grupo (ex.: *Sem classificação*) → **Selecionar**, marque
@@ -75,6 +80,8 @@ mesmas regras de `extrair_litros`/`extrair_kg` do dashboard.
 |---|---|
 | Produto, código, categoria, estoque | `estoque_mestre` (`qtd_sistema`) |
 | P.A. | `principios_ativos`, casado por nome com o mesmo algoritmo da aba 🧬 do dashboard |
+| Classe da Loja Vet | `classificacao_vet` (por código) |
+| Exceção de setor | `setor_override` (por código; `fora_vet` tira da Loja Vet) |
 | Localização | `mapa_posicoes` + `mapa_produtos` / `mapa_produtos_codigos` (por código, fallback nome) |
 | Histórico | `vendas_historico.qtd_estoque` por dia de upload |
 | Grupo químico / mecanismo / HRAC | `produtos_CAMDA.xlsx`, embarcado em `app/src/main/assets/catalogo_pa.json` |

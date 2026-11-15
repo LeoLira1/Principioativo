@@ -169,12 +169,16 @@ fun DialogoBuscaProduto(
     )
 }
 
-/** Atalhos da classificação veterinária (mesma lista do dashboard; texto livre continua valendo). */
+/**
+ * Atalhos da classificação veterinária (mesma lista do dashboard; texto livre continua valendo).
+ * É também a lista oficial que o classificar_produtos do MCP valida (CLASSES_VET em
+ * camda-mcp/src/cadastro_vet.ts) — mude as duas juntas.
+ */
 val CLASSES_VET = listOf(
     "Vermífugo", "Antibiótico", "Anti-inflamatório", "Antiparasitário externo",
     "Carrapaticida/Mosquicida", "Vacina", "Soro", "Hormônio/Reprodução",
-    "Vitamina/Suplemento", "Anestésico/Analgésico", "Antitóxico",
-    "Homeopático", "Pomada/Unguento", "Identificação animal", "Material",
+    "Vitamina/Suplemento", "Anestésico/Analgésico", "Antitóxico", "Antidiarreico",
+    "Homeopático", "Pomada/Unguento", "Identificação animal", "Material", "Outros",
 )
 val ESPECIES_VET = listOf("Bovinos", "Equinos", "Suínos", "Aves", "Ovinos/Caprinos", "Cães e Gatos", "Multiespécie", "Material")
 val SEGMENTOS_VET = listOf("Corte", "Leite", "Corte e leite")
