@@ -46,6 +46,12 @@ sem mexer no `estoque_mestre` nem na categoria do Protheus. Tabela ausente = nen
 - **Classificar a Loja Vet**: na loja, abra um grupo (ex.: *Sem classificação*) → **Selecionar**, marque
   vários produtos e **Classificar N** (classe, espécie e segmento); ou toque em **Classificar** num produto.
   Grava em `classificacao_vet` (por código) do mesmo jeito que o dashboard. Precisa de token **com escrita**.
+  Só aceita as classes da lista oficial (`core/ClassesVet.kt`, a mesma do MCP); classe gravada fora dela aparece
+  com aviso no diálogo para corrigir.
+- **Categoria no card**: a do Protheus (`estoque_mestre`), igual ao MCP. A categoria do cadastro de P.A. continua
+  valendo para decidir o setor e é a que o *Editar P.A.* traz preenchida.
+- **Loja Vet com busca**: só os produtos da regra da loja (sem os de "Outros" com P.A., que só a busca do
+  barracão traz).
 - **Busca única**: P.A., nome ou código, parcial, sem diferenciar maiúsculas nem acentos.
 - **Rosca segmentada** (top 8 + "Outros"), com % na fatia e linha-guia até o rótulo.
 - **Barras em pílula** com trilho e valor no topo (top 8 por volume).

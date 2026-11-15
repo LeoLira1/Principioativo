@@ -17,11 +17,14 @@ class SetorOverrideTest {
             LinhaEstoque("US33936", "REGULADOR CRESCIMENTO ETHREL 720 20L", "OUTROS", 76.0),
             LinhaEstoque("277973", "REGULADOR CRESCIMENTO CURAVIAL 300G", "OUTROS", 98.0),
             LinhaEstoque("10", "IVOMEC 1% 500ML", "VERMIFUGOS", 24.0),
+            LinhaEstoque("100259993", "REGULADOR CRESCIMENTO PROGIBB 400 250GR", "MATURADORES", 57.0),
+            LinhaEstoque("US100259993", "REGULADOR CRESCIMENTO PROGIBB 400 250GR", "MATURADORES", 8250.0),
         ),
         pas = listOf(
             LinhaPa("REGULADOR CRESCIMENTO ETHREL 720 20L", "Etefom", "MATURADORES"),
             LinhaPa("REGULADOR CRESCIMENTO CURAVIAL 300G", "Sulfometurom-metil", "OUTROS"),
             LinhaPa("IVOMEC 1%", "Ivermectina"),
+            LinhaPa("REGULADOR CRESCIMENTO PROGIBB 400 250GR", "Ácido Giberélico", "MATURADORES"),
         ),
         mapa = emptyList(),
         historico = emptyList(),
@@ -72,5 +75,17 @@ class SetorOverrideTest {
             ok("""[[{"type":"text","value":"US33936"},{"type":"text","value":"fora_vet"}]]"""),
         )
         assertEquals(listOf(LinhaSetorOverride("US33936", "fora_vet")), Turso.parseBase(comTabela).overrides)
+    }
+
+    /** PROGIBB: MATURADORES no Protheus, com P.A. Não é da loja, nem com busca (caía em "Sem classificação"). */
+    @Test fun buscaNaLojaNaoTrazNaoVeterinario() {
+        val ps = Consulta.montarProdutos(snap(emptyList()))
+        for (q in listOf("progibb", "regulador", "giberelico", "100259993")) {
+            val aba = Consulta.aplicaFiltros(Consulta.produtosDaAba(ps, Setor.LOJA_VET, q), Filtros(busca = q))
+            val semClasse = Consulta.agruparPorClasse(aba).grupos.firstOrNull { it.nome == CLASSE_SEM }?.produtos.orEmpty()
+            assertFalse(q, semClasse.any { it.nome.contains("PROGIBB") })
+        }
+        // no barracão a busca por P.A. ainda acha
+        assertTrue("100259993" in Consulta.produtosDaAba(ps, Setor.BARRACAO, "progibb").map { it.codigo })
     }
 }

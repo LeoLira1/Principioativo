@@ -79,6 +79,7 @@ import br.com.camda.principioativo.core.Resultado
 import br.com.camda.principioativo.core.TipoEmbalagem
 import br.com.camda.principioativo.core.fmtInt
 import br.com.camda.principioativo.core.fmtNum
+import br.com.camda.principioativo.core.CLASSES_VET
 import br.com.camda.principioativo.core.CLASSE_SEM
 import br.com.camda.principioativo.core.PREFIXO_CLASSE
 import br.com.camda.principioativo.core.Setor
@@ -676,7 +677,7 @@ fun TelaDetalhe(chave: String, v: Vista, estado: Estado, vm: MainViewModel) {
     var selecionando by remember { mutableStateOf(false) }
     val marcados = remember { mutableStateListOf<String>() }
     var classificando by remember { mutableStateOf<List<Produto>?>(null) }
-    val classes = remember(v.produtos) { classesConhecidas(v.produtos) }
+    val classes = CLASSES_VET
     classificando?.let { lista ->
         DialogoClassificarVet(
             produtos = lista,

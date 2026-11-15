@@ -1,16 +1,21 @@
 package br.com.camda.principioativo.ui
 
+import br.com.camda.principioativo.core.CLASSES_VET
 import br.com.camda.principioativo.core.Embalagem
 import br.com.camda.principioativo.core.InfoCatalogo
 import br.com.camda.principioativo.core.PaMatcher
 import br.com.camda.principioativo.core.Produto
 import br.com.camda.principioativo.core.Quantidade
+import br.com.camda.principioativo.core.classeOficial
+import br.com.camda.principioativo.core.ehClasseOficial
 import br.com.camda.principioativo.data.Turso
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -90,17 +95,22 @@ class CadastroPaTest {
         assertEquals("AB9", inserts[1].jsonObject["stmt"]!!.jsonObject["args"]!!.jsonArray[0].jsonObject["value"]!!.jsonPrimitive.content)
     }
 
-    @Test fun classesConhecidasUsaGrafiaDoEstoqueSemRepetir() {
-        val lista = classesConhecidas(
-            listOf(
-                prod("1", "A").copy(classe = "vermifugo"),
-                prod("2", "B").copy(classe = "Pomada/Unguento"),
-                prod("3", "C").copy(classe = "Probiótico"),
-            ),
-        )
-        assertEquals("vermifugo", lista.first()) // a grafia usada no estoque vence
-        assertEquals(1, lista.count { it.lowercase().startsWith("vermifugo") || it == "Vermífugo" })
-        assertEquals(1, lista.count { it == "Pomada/Unguento" })
-        assertTrue("Probiótico" in lista)
+    @Test fun classeSoDaListaOficial() {
+        assertEquals("Vermífugo", classeOficial("vermifugo"))
+        assertEquals("Antidiarreico", classeOficial("ANTIDIARREICO"))
+        assertEquals(null, classeOficial("Antidiarrerico"))
+        assertTrue(ehClasseOficial("Antidiarreico"))
+        assertFalse(ehClasseOficial("Antidiarrerico"))
+        assertFalse(ehClasseOficial("vermifugo")) // grava sempre a grafia oficial
+        assertEquals(17, CLASSES_VET.size)
+    }
+
+    @Test fun salvarClassificacaoRecusaClasseForaDaLista() {
+        assertThrows(IllegalArgumentException::class.java) {
+            Turso.corpoSalvarClassificacao(listOf("56278"), "Antidiarrerico", "", "", "2026-11-15 10:00:00")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            Turso.corpoSalvarClassificacao(listOf("56278"), "Probiótico", "", "", "2026-11-15 10:00:00")
+        }
     }
 }

@@ -73,7 +73,7 @@ data class Local(val posKey: String, val quantidade: Double?, val unidade: Strin
 data class Produto(
     val codigo: String,
     val nome: String,
-    /** Categoria mostrada: a gravada em `principios_ativos`; sem ela, a do estoque. */
+    /** Categoria do Protheus (`estoque_mestre`): a que o card mostra, igual ao MCP. */
     val categoria: String,
     val quantidade: Quantidade,
     /** Ingredientes (vazio = sem P.A. cadastrado). */
@@ -84,14 +84,17 @@ data class Produto(
     val classe: String = "",
     val especie: String = "",
     val segmento: String = "",
-    /** Categoria de `estoque_mestre` (a do BI), mesmo quando [categoria] vem do cadastro de P.A. */
-    val categoriaEstoque: String = categoria,
+    /** Categoria gravada no cadastro de P.A. (`principios_ativos.categoria`); vazio = sem. Entra na regra do setor. */
+    val categoriaCadastro: String = "",
     /** Tem linha em `principios_ativos` (pelo nome) ou P.A. achado pelo casamento. */
     val temCadastroPa: Boolean = pas.isNotEmpty(),
     /** Marcado em `setor_override` como "fora_vet": nunca entra na Loja Vet. */
     val foraDaVet: Boolean = false,
 ) {
     val temEstoque: Boolean get() = quantidade.qtd > 0
+
+    /** Mesma coisa que [categoria] (a do Protheus); mantido para quem lia este nome. */
+    val categoriaEstoque: String get() = categoria
 
     /** Brinco conta 1 un. por peça: sai dos gráficos da loja para não engolir a rosca. */
     val ehBrinco: Boolean get() = RE_BRINCO.containsMatchIn(nome)
